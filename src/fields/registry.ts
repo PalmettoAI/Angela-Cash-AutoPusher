@@ -1,58 +1,324 @@
 import type { FieldDef, Subtype } from "./types";
 
+const ALL_BUT_LAND: Subtype[] = ["office", "retail", "industrial", "multifamily", "mixed_use"];
+const COMMERCIAL_BUILT: Subtype[] = ["office", "retail", "industrial", "mixed_use"];
+
+const UTILITIES_OPTIONS = [
+  { value: "above_ground", label: "Above Ground" },
+  { value: "below_ground", label: "Below Ground" },
+  { value: "cable_tv", label: "Cable TV" },
+  { value: "connected", label: "Connected" },
+  { value: "electric", label: "Electric" },
+  { value: "natural_gas", label: "Natural Gas" },
+  { value: "septic", label: "Septic" },
+  { value: "sewer", label: "Sewer" },
+  { value: "telephone", label: "Telephone" },
+  { value: "water", label: "Water" },
+  { value: "none", label: "None" },
+  { value: "other", label: "Other / see remarks" },
+];
+
+const CLASS_OPTIONS = [
+  { value: "A", label: "Class A" },
+  { value: "B", label: "Class B" },
+  { value: "C", label: "Class C" },
+];
+
+const TENANCY_OPTIONS = [
+  { value: "single", label: "Single" },
+  { value: "multi", label: "Multi" },
+];
+
 // Single source of truth for all listing fields. Top-level form fields map
 // 1:1 to Drizzle columns; subtype-specific fields land in `subtype_fields`
-// jsonb. To add a new field: append a row here, then either add a Drizzle
-// column (top-level) or set `jsonField: true` (subtype-specific).
+// jsonb (jsonField: true). To add a new field: append a row here, then
+// either add a Drizzle column (top-level) or set jsonField: true.
 export const FIELD_REGISTRY: FieldDef[] = [
-  // identity
-  { key: "title", label: "Listing title", kind: "text", required: true, section: "identity" },
-  { key: "publicRemarks", label: "Public remarks", kind: "textarea", section: "identity",
-    helpText: "Long description shown on portals" },
+  // ─── identity ─────────────────────────────────────────────────────────
+  { key: "title", label: "Listing title / property name", kind: "text", required: true, section: "identity" },
+  { key: "publicRemarks", label: "Public remarks (MLS-safe)", kind: "textarea", section: "identity",
+    helpText: "CMLS rules: no contact info, URLs, phone numbers, lockbox codes, occupancy mentions, or compensation offers. Used by Paragon." },
+  { key: "marketingRemarks", label: "Marketing remarks (with branding)", kind: "textarea", section: "identity",
+    helpText: "Long-form marketing copy with agent contact info / branding. Used by Crexi, LoopNet, and angelacash.com." },
   { key: "agentRemarks", label: "Agent-only remarks", kind: "textarea", section: "identity",
     helpText: "Private MLS notes, not shown publicly" },
   { key: "listingType", label: "Listing type", kind: "enum_listing_type", required: true, section: "identity" },
 
-  // address
+  // ─── address ──────────────────────────────────────────────────────────
   { key: "street", label: "Street", kind: "text", required: true, section: "address" },
   { key: "city", label: "City", kind: "text", required: true, section: "address" },
   { key: "state", label: "State", kind: "text", required: true, section: "address" },
   { key: "zip", label: "Zip", kind: "text", required: true, section: "address" },
   { key: "county", label: "County", kind: "text", section: "address" },
 
-  // pricing
+  // ─── pricing ──────────────────────────────────────────────────────────
   { key: "salePrice", label: "Sale price (USD)", kind: "currency", section: "pricing",
     helpText: "Required if for sale" },
   { key: "leaseRate", label: "Lease rate ($/sqft/yr)", kind: "currency", section: "pricing",
     helpText: "Required if for lease" },
   { key: "leaseType", label: "Lease type", kind: "enum_lease_type", section: "pricing" },
 
-  // physical
-  { key: "yearBuilt", label: "Year built", kind: "number", section: "physical" },
-  { key: "buildingSqft", label: "Building sqft", kind: "number", section: "physical" },
+  // ─── physical (universal where applicable) ─────────────────────────────
+  { key: "yearBuilt", label: "Year built", kind: "number", section: "physical",
+    appliesToSubtypes: ALL_BUT_LAND },
+  { key: "buildingSqft", label: "Building sqft", kind: "number", section: "physical",
+    appliesToSubtypes: ALL_BUT_LAND },
   { key: "lotSizeAcres", label: "Lot size (acres)", kind: "number", section: "physical" },
   { key: "zoning", label: "Zoning", kind: "text", section: "physical" },
-  { key: "parkingSpaces", label: "Parking spaces", kind: "number", section: "physical" },
-  { key: "parkingRatio", label: "Parking ratio (per 1000 sqft)", kind: "number", section: "physical" },
+  { key: "parkingSpaces", label: "Parking spaces", kind: "number", section: "physical",
+    appliesToSubtypes: ALL_BUT_LAND },
+  { key: "parkingRatio", label: "Parking ratio (per 1000 sqft)", kind: "number", section: "physical",
+    appliesToSubtypes: ALL_BUT_LAND },
+  { key: "apn", label: "APN / Parcel ID", kind: "text", section: "physical", jsonField: true },
+  { key: "numStories", label: "# of stories", kind: "number", section: "physical", jsonField: true,
+    appliesToSubtypes: ALL_BUT_LAND },
+  { key: "numBuildings", label: "# of buildings", kind: "number", section: "physical", jsonField: true,
+    appliesToSubtypes: ALL_BUT_LAND },
+  { key: "yearRenovated", label: "Year renovated", kind: "number", section: "physical", jsonField: true,
+    appliesToSubtypes: ALL_BUT_LAND },
+  { key: "occupancyPct", label: "Occupancy %", kind: "percent", section: "physical", jsonField: true,
+    appliesToSubtypes: ["office", "retail", "industrial", "multifamily"] },
+  { key: "occupancyDate", label: "Occupancy date", kind: "date", section: "physical", jsonField: true,
+    appliesToSubtypes: COMMERCIAL_BUILT },
+  { key: "netRentableSqft", label: "Net rentable SF", kind: "number", section: "physical", jsonField: true,
+    appliesToSubtypes: ALL_BUT_LAND },
 
-  // agent
+  // ─── agent ────────────────────────────────────────────────────────────
   { key: "agentName", label: "Agent name", kind: "text", required: true, section: "agent" },
   { key: "agentEmail", label: "Agent email", kind: "text", required: true, section: "agent" },
   { key: "agentPhone", label: "Agent phone", kind: "text", section: "agent" },
 
-  // ──────────────────────────────────────────────────────────────────────
-  // Subtype-specific fields. Stored in listings.subtype_fields jsonb.
-  // TODO: inventory Crexi/LoopNet forms and fill in real fields per subtype.
-  // The structural slot exists below so the UI can render them as soon as
-  // the registry is populated.
-  // ──────────────────────────────────────────────────────────────────────
+  // ═══════════════════════════════════════════════════════════════════════
+  // Subtype-specific fields. All jsonField: true → listings.subtype_fields jsonb.
+  // ═══════════════════════════════════════════════════════════════════════
 
-  // office — TODO: class (A/B/C), tenancy, typical floor plate, ceiling height
-  // retail — TODO: anchor tenant, traffic count, GLA, frontage
-  // industrial — TODO: clear height, dock doors, drive-ins, power, rail
-  // land — TODO: acreage, topography, utilities at site, frontage, entitlements
-  // multifamily — TODO: unit count, unit mix, NOI, cap rate, occupancy
-  // mixed_use — TODO: component breakdown (retail sqft, residential units, etc.)
+  // ─── OFFICE ───────────────────────────────────────────────────────────
+  { key: "officeSubtypeDetail", label: "Office subtype (Crexi: pick 1–3)", kind: "multi_select",
+    section: "subtype", jsonField: true, appliesToSubtypes: ["office"],
+    options: [
+      { value: "creative_office", label: "Creative Office" },
+      { value: "executive_office", label: "Executive Office" },
+      { value: "medical_office", label: "Medical Office" },
+      { value: "traditional_office", label: "Traditional Office" },
+    ] },
+  { key: "buildingClass", label: "Building class", kind: "select", section: "subtype", jsonField: true,
+    appliesToSubtypes: ["office", "retail", "industrial"], options: CLASS_OPTIONS },
+  { key: "tenancy", label: "Tenancy", kind: "select", section: "subtype", jsonField: true,
+    appliesToSubtypes: ["office", "retail", "industrial"], options: TENANCY_OPTIONS },
+  { key: "numRestrooms", label: "# of restrooms", kind: "number", section: "subtype", jsonField: true,
+    appliesToSubtypes: ["office", "retail"] },
+  { key: "minSfAvailable", label: "Minimum SF available", kind: "number", section: "subtype", jsonField: true,
+    appliesToSubtypes: COMMERCIAL_BUILT },
+  { key: "maxContiguousSf", label: "Max contiguous SF available", kind: "number", section: "subtype", jsonField: true,
+    appliesToSubtypes: COMMERCIAL_BUILT },
+
+  // ─── RETAIL ───────────────────────────────────────────────────────────
+  { key: "retailSubtypeDetail", label: "Retail subtype (Crexi: pick 1–3)", kind: "multi_select",
+    section: "subtype", jsonField: true, appliesToSubtypes: ["retail"],
+    options: [
+      { value: "storefront", label: "Storefront" },
+      { value: "restaurant", label: "Restaurant" },
+      { value: "shopping_center", label: "Shopping Center" },
+      { value: "qsr_fast_food", label: "QSR / Fast Food" },
+      { value: "convenience_store", label: "Convenience Store" },
+      { value: "auto_shop", label: "Auto Shop" },
+      { value: "bar", label: "Bar" },
+      { value: "gas_station", label: "Gas Station" },
+      { value: "grocery_store", label: "Grocery Store" },
+      { value: "pharmacy_drug", label: "Pharmacy / Drug" },
+      { value: "bank", label: "Bank" },
+      { value: "day_care_nursery", label: "Day Care / Nursery" },
+    ] },
+  { key: "investmentType", label: "Investment type", kind: "text", section: "subtype", jsonField: true,
+    appliesToSubtypes: ["retail"] },
+  { key: "investmentSubType", label: "Investment subtype", kind: "text", section: "subtype", jsonField: true,
+    appliesToSubtypes: ["retail"] },
+  { key: "anchorTenant", label: "Anchor / brand tenant", kind: "text", section: "subtype", jsonField: true,
+    appliesToSubtypes: ["retail"] },
+  { key: "tenantCredit", label: "Tenant credit", kind: "text", section: "subtype", jsonField: true,
+    appliesToSubtypes: ["retail"] },
+  { key: "leaseTerm", label: "Lease term", kind: "text", section: "subtype", jsonField: true,
+    appliesToSubtypes: ["retail"] },
+  { key: "leaseCommencement", label: "Lease commencement", kind: "date", section: "subtype", jsonField: true,
+    appliesToSubtypes: ["retail"] },
+  { key: "leaseExpiration", label: "Lease expiration", kind: "date", section: "subtype", jsonField: true,
+    appliesToSubtypes: ["retail"] },
+  { key: "remainingTerm", label: "Remaining term", kind: "text", section: "subtype", jsonField: true,
+    appliesToSubtypes: ["retail"] },
+  { key: "rentBumps", label: "Rent bumps", kind: "text", section: "subtype", jsonField: true,
+    appliesToSubtypes: ["retail"] },
+  { key: "leaseOptions", label: "Lease options", kind: "text", section: "subtype", jsonField: true,
+    appliesToSubtypes: ["retail"] },
+  { key: "groundLease", label: "Ground lease", kind: "boolean", section: "subtype", jsonField: true,
+    appliesToSubtypes: ["retail"] },
+  { key: "carsPerDay", label: "Cars per day (traffic count)", kind: "number", section: "subtype", jsonField: true,
+    appliesToSubtypes: ["retail"] },
+  { key: "signSpace", label: "Sign space", kind: "text", section: "subtype", jsonField: true,
+    appliesToSubtypes: ["retail"] },
+
+  // ─── INDUSTRIAL ───────────────────────────────────────────────────────
+  { key: "industrialSubtypeDetail", label: "Industrial subtype (Crexi: pick 1–3)", kind: "multi_select",
+    section: "subtype", jsonField: true, appliesToSubtypes: ["industrial"],
+    options: [
+      { value: "warehouse", label: "Warehouse" },
+      { value: "flex", label: "Flex" },
+      { value: "manufacturing", label: "Manufacturing" },
+      { value: "distribution", label: "Distribution" },
+      { value: "rd", label: "R&D" },
+      { value: "refrigerated_cold_storage", label: "Refrigerated / Cold Storage" },
+    ] },
+  { key: "loadingDocks", label: "Loading docks", kind: "number", section: "subtype", jsonField: true,
+    appliesToSubtypes: ["industrial"] },
+  { key: "dockHighDoors", label: "Dock-high doors", kind: "number", section: "subtype", jsonField: true,
+    appliesToSubtypes: ["industrial"] },
+  { key: "driveInDoors", label: "Drive-in / grade-level doors", kind: "number", section: "subtype", jsonField: true,
+    appliesToSubtypes: ["industrial"] },
+  { key: "ceilingHeight", label: "Ceiling height (ft)", kind: "number", section: "subtype", jsonField: true,
+    appliesToSubtypes: ["industrial"] },
+  { key: "clearCeilingHeight", label: "Clear ceiling height (ft)", kind: "number", section: "subtype", jsonField: true,
+    appliesToSubtypes: ["industrial"] },
+  { key: "floorLoad", label: "Floor load", kind: "text", section: "subtype", jsonField: true,
+    appliesToSubtypes: ["industrial"] },
+  { key: "truckDoors", label: "Truck doors", kind: "number", section: "subtype", jsonField: true,
+    appliesToSubtypes: ["industrial"] },
+  { key: "amps", label: "AMPS", kind: "number", section: "subtype", jsonField: true,
+    appliesToSubtypes: ["industrial"] },
+  { key: "phase", label: "Phase", kind: "number", section: "subtype", jsonField: true,
+    appliesToSubtypes: ["industrial"] },
+  { key: "volts", label: "Volts", kind: "number", section: "subtype", jsonField: true,
+    appliesToSubtypes: ["industrial"] },
+  { key: "railroad", label: "Railroad access", kind: "boolean", section: "subtype", jsonField: true,
+    appliesToSubtypes: ["industrial"] },
+  { key: "fencedSqft", label: "Fenced SF", kind: "number", section: "subtype", jsonField: true,
+    appliesToSubtypes: ["industrial"] },
+  { key: "industrialUtilities", label: "Utilities available", kind: "multi_select",
+    section: "subtype", jsonField: true, appliesToSubtypes: ["industrial"], options: UTILITIES_OPTIONS },
+
+  // ─── LAND ─────────────────────────────────────────────────────────────
+  { key: "landSubtypeDetail", label: "Land subtype (Crexi: pick 1–3)", kind: "multi_select",
+    section: "subtype", jsonField: true, appliesToSubtypes: ["land"],
+    options: [
+      { value: "commercial", label: "Commercial" },
+      { value: "residential", label: "Residential" },
+      { value: "industrial", label: "Industrial" },
+      { value: "agricultural", label: "Agricultural" },
+      { value: "farm", label: "Farm" },
+      { value: "hunting_recreational", label: "Hunting / Recreational" },
+      { value: "ranch", label: "Ranch" },
+      { value: "timber", label: "Timber" },
+      { value: "islands", label: "Islands" },
+    ] },
+  { key: "landType", label: "Land type (Paragon)", kind: "select", section: "subtype", jsonField: true,
+    appliesToSubtypes: ["land"], options: [
+      { value: "groves_improved", label: "Groves (Improved)" },
+      { value: "groves_unimproved", label: "Groves (Unimproved)" },
+      { value: "lot_land_improved", label: "Lot/Land (Improved)" },
+      { value: "lot_land_unimproved", label: "Lot/Land (Unimproved)" },
+      { value: "ranch_farm", label: "Ranch / Farm" },
+    ] },
+  { key: "presentUse", label: "Present / current use", kind: "select", section: "subtype", jsonField: true,
+    appliesToSubtypes: ["land"], options: [
+      { value: "commercial", label: "Commercial" },
+      { value: "farm_ranch", label: "Farm / Ranch" },
+      { value: "horse_property", label: "Horse Property" },
+      { value: "industrial", label: "Industrial" },
+      { value: "multi_dwelling", label: "Multi-Dwelling" },
+      { value: "recreational", label: "Recreational" },
+      { value: "residential", label: "Residential" },
+      { value: "unimproved", label: "Unimproved" },
+      { value: "vacant", label: "Vacant" },
+      { value: "other", label: "Other / see remarks" },
+    ] },
+  { key: "highestBestUse", label: "Highest & best use", kind: "text", section: "subtype", jsonField: true,
+    appliesToSubtypes: ["land"] },
+  { key: "possibleNewZoning", label: "Possible new zoning", kind: "text", section: "subtype", jsonField: true,
+    appliesToSubtypes: ["land"] },
+  { key: "lotDimensions", label: "Lot dimensions", kind: "text", section: "subtype", jsonField: true,
+    appliesToSubtypes: ["land"] },
+  { key: "pricePerAcre", label: "Price per acre", kind: "currency", section: "subtype", jsonField: true,
+    appliesToSubtypes: ["land"] },
+  { key: "pricePerSqftLand", label: "Price per SF (land)", kind: "currency", section: "subtype", jsonField: true,
+    appliesToSubtypes: ["land"] },
+  { key: "streetFrontage", label: "Street frontage (ft)", kind: "number", section: "subtype", jsonField: true,
+    appliesToSubtypes: ["land"] },
+  { key: "topography", label: "Topography", kind: "text", section: "subtype", jsonField: true,
+    appliesToSubtypes: ["land"] },
+  { key: "soilType", label: "Soil type", kind: "text", section: "subtype", jsonField: true,
+    appliesToSubtypes: ["land"] },
+  { key: "ingressEgress", label: "Ingress / egress", kind: "text", section: "subtype", jsonField: true,
+    appliesToSubtypes: ["land"] },
+  { key: "easements", label: "Easements", kind: "text", section: "subtype", jsonField: true,
+    appliesToSubtypes: ["land"] },
+  { key: "mineralRights", label: "Mineral rights", kind: "boolean", section: "subtype", jsonField: true,
+    appliesToSubtypes: ["land"] },
+  { key: "fenced", label: "Fenced", kind: "boolean", section: "subtype", jsonField: true,
+    appliesToSubtypes: ["land"] },
+  { key: "cleared", label: "Cleared", kind: "boolean", section: "subtype", jsonField: true,
+    appliesToSubtypes: ["land"] },
+  { key: "cityWater", label: "City water", kind: "boolean", section: "subtype", jsonField: true,
+    appliesToSubtypes: ["land"] },
+  { key: "wells", label: "Wells", kind: "text", section: "subtype", jsonField: true,
+    appliesToSubtypes: ["land"] },
+  { key: "waterDistrict", label: "Water district", kind: "text", section: "subtype", jsonField: true,
+    appliesToSubtypes: ["land"] },
+  { key: "landUtilities", label: "Utilities available", kind: "multi_select",
+    section: "subtype", jsonField: true, appliesToSubtypes: ["land"], options: UTILITIES_OPTIONS },
+  { key: "opportunityZone", label: "Opportunity zone", kind: "boolean", section: "subtype", jsonField: true,
+    appliesToSubtypes: ["land"] },
+
+  // ─── MULTIFAMILY ──────────────────────────────────────────────────────
+  { key: "multifamilySubtypeDetail", label: "Multifamily subtype (Crexi)", kind: "multi_select",
+    section: "subtype", jsonField: true, appliesToSubtypes: ["multifamily"],
+    options: [
+      { value: "apartment_building", label: "Apartment Building" },
+      { value: "high_rise", label: "High-Rise" },
+    ] },
+  { key: "numUnits", label: "# of units", kind: "number", section: "subtype", jsonField: true,
+    appliesToSubtypes: ["multifamily", "mixed_use"] },
+  { key: "pricePerUnit", label: "Price per unit", kind: "currency", section: "subtype", jsonField: true,
+    appliesToSubtypes: ["multifamily"] },
+  { key: "capRate", label: "Cap rate (%)", kind: "percent", section: "subtype", jsonField: true,
+    appliesToSubtypes: ["retail", "multifamily", "mixed_use"] },
+  { key: "proFormaCapRate", label: "Pro-forma cap rate (%)", kind: "percent", section: "subtype", jsonField: true,
+    appliesToSubtypes: ["multifamily"] },
+  { key: "noi", label: "NOI", kind: "currency", section: "subtype", jsonField: true,
+    appliesToSubtypes: ["retail", "multifamily", "mixed_use"] },
+  { key: "proFormaNoi", label: "Pro-forma NOI", kind: "currency", section: "subtype", jsonField: true,
+    appliesToSubtypes: ["multifamily"] },
+  { key: "grossIncome", label: "Gross income", kind: "currency", section: "subtype", jsonField: true,
+    appliesToSubtypes: ["multifamily"] },
+  { key: "expenses", label: "Operating expenses", kind: "currency", section: "subtype", jsonField: true,
+    appliesToSubtypes: ["multifamily"] },
+  { key: "unitMix", label: "Unit mix", kind: "textarea", section: "subtype", jsonField: true,
+    appliesToSubtypes: ["multifamily"],
+    helpText: "e.g. 4×1BR, 8×2BR, 2×3BR — one line per unit type" },
+  { key: "minLeaseTerms", label: "Minimum lease terms", kind: "text", section: "subtype", jsonField: true,
+    appliesToSubtypes: ["multifamily"] },
+
+  // ─── MIXED-USE ────────────────────────────────────────────────────────
+  { key: "componentTypes", label: "Component property types (multi-select)", kind: "multi_select",
+    section: "subtype", jsonField: true, appliesToSubtypes: ["mixed_use"],
+    options: [
+      { value: "office", label: "Office" },
+      { value: "retail", label: "Retail" },
+      { value: "industrial", label: "Industrial" },
+      { value: "multifamily", label: "Multifamily" },
+      { value: "land", label: "Land" },
+      { value: "hospitality", label: "Hospitality" },
+      { value: "other", label: "Other" },
+    ] },
+  { key: "componentBreakdown", label: "Component breakdown", kind: "textarea", section: "subtype", jsonField: true,
+    appliesToSubtypes: ["mixed_use"],
+    helpText: "Per-component SF / unit counts. e.g. 2,400 SF retail at street level, 8 residential units above." },
+  { key: "alsoMarketAs", label: "Also market as (LoopNet allows up to 3)", kind: "multi_select",
+    section: "subtype", jsonField: true, appliesToSubtypes: ["mixed_use"],
+    options: [
+      { value: "office", label: "Office" },
+      { value: "retail", label: "Retail" },
+      { value: "industrial", label: "Industrial" },
+      { value: "multifamily", label: "Multifamily" },
+      { value: "land", label: "Land" },
+    ] },
 ];
 
 export function fieldsForSubtype(subtype: Subtype): FieldDef[] {

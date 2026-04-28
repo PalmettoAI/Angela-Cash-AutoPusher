@@ -29,7 +29,11 @@ export type FieldKind =
   | "textarea"
   | "number"
   | "currency"
+  | "percent"
+  | "boolean"
+  | "date"
   | "select"
+  | "multi_select"
   | "enum_listing_type"
   | "enum_lease_type";
 

@@ -8,6 +8,7 @@ import Link from "next/link";
 import { destinationAdapters } from "@/destinations";
 import type { ListingWithRelations } from "@/destinations/types";
 import { PushControls } from "../push-controls";
+import { checkListing } from "@/lib/cmls-compliance";
 
 export const dynamic = "force-dynamic";
 
@@ -28,6 +29,8 @@ export default async function ReviewPage({ params }: { params: { id: string } })
       preview: await a.preview(listing),
     })),
   );
+
+  const warnings = checkListing(listing);
 
   return (
     <div className="space-y-6">
@@ -50,6 +53,34 @@ export default async function ReviewPage({ params }: { params: { id: string } })
           />
         </div>
       </div>
+
+      {warnings.length > 0 && (
+        <Card className="border-amber-500/60 bg-amber-50/50">
+          <CardHeader>
+            <CardTitle className="text-base text-amber-900">
+              CMLS compliance — {warnings.length} warning{warnings.length === 1 ? "" : "s"}
+            </CardTitle>
+            <CardDescription className="text-amber-900/80">
+              Non-blocking. You can publish anyway, but CMLS rules forbid the items below in
+              Public Remarks / MLS photos. Fix in the listing detail before pushing to Paragon.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ul className="space-y-1 text-sm">
+              {warnings.map((w, i) => (
+                <li key={i} className="flex gap-2">
+                  <span className={w.severity === "warn" ? "text-amber-700" : "text-muted-foreground"}>
+                    {w.severity === "warn" ? "⚠" : "ℹ"}
+                  </span>
+                  <span>
+                    <code className="text-xs text-muted-foreground">{w.field}</code> — {w.message}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </CardContent>
+        </Card>
+      )}
 
       <div className="grid gap-4 md:grid-cols-2">
         {previews.map(({ adapter, preview }) => (

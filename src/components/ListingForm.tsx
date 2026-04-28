@@ -28,6 +28,7 @@ const formSchema = z.object({
   listingType: z.enum(["for_sale", "for_lease", "both"]),
   title: z.string().min(1, "Required"),
   publicRemarks: z.string().optional(),
+  marketingRemarks: z.string().optional(),
   agentRemarks: z.string().optional(),
   street: z.string().min(1, "Required"),
   city: z.string().min(1, "Required"),
@@ -46,12 +47,25 @@ const formSchema = z.object({
   agentName: z.string().min(1, "Required"),
   agentEmail: z.string().min(1, "Required"),
   agentPhone: z.string().optional(),
-  // photo & document URL lists, comma-separated for v1
   photoUrls: z.string().optional(),
   documentUrls: z.string().optional(),
+  // All subtype-specific + jsonField universal fields are passed in this map.
+  subtypeFields: z.record(z.union([z.string(), z.number(), z.boolean()])).optional(),
 });
 
 type FormValues = z.infer<typeof formSchema>;
+
+function inputProps(def: FieldDef) {
+  if (def.kind === "number") return { type: "number" as const, step: "any" };
+  if (def.kind === "currency") return { type: "number" as const, step: "0.01" };
+  if (def.kind === "percent") return { type: "number" as const, step: "0.01" };
+  if (def.kind === "date") return { type: "date" as const };
+  return { type: "text" as const };
+}
+
+function renderEnumOptions(def: FieldDef) {
+  return def.options?.map((o) => o.label).join(", ") ?? "";
+}
 
 function Field({
   def,
@@ -62,6 +76,9 @@ function Field({
   register: ReturnType<typeof useForm<FormValues>>["register"];
   errors: ReturnType<typeof useForm<FormValues>>["formState"]["errors"];
 }) {
+  // For jsonField fields the form path is subtypeFields.<key>; for top-level
+  // it's the bare key.
+  const path = def.jsonField ? (`subtypeFields.${def.key}` as const) : (def.key as keyof FormValues);
   const id = def.key;
   const err = (errors as Record<string, { message?: string } | undefined>)[def.key];
 
@@ -71,7 +88,7 @@ function Field({
         <Label htmlFor={id}>
           {def.label} {def.required && <span className="text-destructive">*</span>}
         </Label>
-        <Textarea id={id} rows={4} {...register(def.key as keyof FormValues)} />
+        <Textarea id={id} rows={4} {...register(path as keyof FormValues)} />
         {def.helpText && <p className="text-xs text-muted-foreground">{def.helpText}</p>}
         {err?.message && <p className="text-xs text-destructive">{err.message}</p>}
       </div>
@@ -87,7 +104,7 @@ function Field({
         <select
           id={id}
           className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-          {...register(def.key as keyof FormValues)}
+          {...register(path as keyof FormValues)}
         >
           <option value="for_sale">For Sale</option>
           <option value="for_lease">For Lease</option>
@@ -104,7 +121,7 @@ function Field({
         <select
           id={id}
           className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-          {...register(def.key as keyof FormValues)}
+          {...register(path as keyof FormValues)}
         >
           <option value="">—</option>
           <option value="nnn">NNN</option>
@@ -115,15 +132,62 @@ function Field({
     );
   }
 
-  const inputType = def.kind === "number" || def.kind === "currency" ? "number" : "text";
-  const step = def.kind === "currency" ? "0.01" : def.kind === "number" ? "any" : undefined;
+  if (def.kind === "select" && def.options) {
+    return (
+      <div className="space-y-1.5">
+        <Label htmlFor={id}>{def.label}</Label>
+        <select
+          id={id}
+          className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+          {...register(path as keyof FormValues)}
+        >
+          <option value="">—</option>
+          {def.options.map((o) => (
+            <option key={o.value} value={o.value}>{o.label}</option>
+          ))}
+        </select>
+        {def.helpText && <p className="text-xs text-muted-foreground">{def.helpText}</p>}
+      </div>
+    );
+  }
+
+  if (def.kind === "multi_select") {
+    return (
+      <div className="space-y-1.5">
+        <Label htmlFor={id}>{def.label}</Label>
+        <Input
+          id={id}
+          type="text"
+          placeholder="comma-separated values"
+          {...register(path as keyof FormValues)}
+        />
+        <p className="text-xs text-muted-foreground">
+          Allowed: {renderEnumOptions(def)}
+        </p>
+      </div>
+    );
+  }
+
+  if (def.kind === "boolean") {
+    return (
+      <div className="flex items-center gap-2 pt-2">
+        <input
+          id={id}
+          type="checkbox"
+          className="h-4 w-4 rounded border-input"
+          {...register(path as keyof FormValues)}
+        />
+        <Label htmlFor={id} className="text-sm font-normal">{def.label}</Label>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-1.5">
       <Label htmlFor={id}>
         {def.label} {def.required && <span className="text-destructive">*</span>}
       </Label>
-      <Input id={id} type={inputType} step={step} {...register(def.key as keyof FormValues)} />
+      <Input id={id} {...inputProps(def)} {...register(path as keyof FormValues)} />
       {def.helpText && <p className="text-xs text-muted-foreground">{def.helpText}</p>}
       {err?.message && <p className="text-xs text-destructive">{err.message}</p>}
     </div>
@@ -152,6 +216,9 @@ export function ListingForm() {
 
   const subtype = watch("subtype") as Subtype;
   const sections = useMemo(() => fieldsBySection(subtype), [subtype]);
+  // Physical section combines top-level cols + jsonField universals; group separately.
+  const physicalTopLevel = sections.physical.filter((f) => !f.jsonField);
+  const physicalSubtype = sections.physical.filter((f) => f.jsonField);
 
   async function onSubmit(values: FormValues) {
     setSubmitting(true);
@@ -196,18 +263,79 @@ export function ListingForm() {
         </CardContent>
       </Card>
 
-      {(["identity", "address", "pricing", "physical", "agent"] as const).map((sectionKey) => (
-        <Card key={sectionKey}>
-          <CardHeader>
-            <CardTitle className="capitalize">{sectionKey}</CardTitle>
-          </CardHeader>
-          <CardContent className="grid gap-4 md:grid-cols-2">
-            {sections[sectionKey].map((def) => (
+      <Card>
+        <CardHeader>
+          <CardTitle>Identity</CardTitle>
+        </CardHeader>
+        <CardContent className="grid gap-4 md:grid-cols-2">
+          {sections.identity.map((def) => (
+            <Field key={def.key} def={def} register={register} errors={errors} />
+          ))}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Address</CardTitle>
+        </CardHeader>
+        <CardContent className="grid gap-4 md:grid-cols-2">
+          {sections.address.map((def) => (
+            <Field key={def.key} def={def} register={register} errors={errors} />
+          ))}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Pricing</CardTitle>
+        </CardHeader>
+        <CardContent className="grid gap-4 md:grid-cols-2">
+          {sections.pricing.map((def) => (
+            <Field key={def.key} def={def} register={register} errors={errors} />
+          ))}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Building & site</CardTitle>
+        </CardHeader>
+        <CardContent className="grid gap-4 md:grid-cols-2">
+          {[...physicalTopLevel, ...physicalSubtype].map((def) => (
+            <Field key={def.key} def={def} register={register} errors={errors} />
+          ))}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="capitalize">
+            {SUBTYPE_LABELS[subtype]} specifics
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="grid gap-4 md:grid-cols-2">
+          {sections.subtype.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              No subtype-specific fields registered for {subtype} yet.
+            </p>
+          ) : (
+            sections.subtype.map((def) => (
               <Field key={def.key} def={def} register={register} errors={errors} />
-            ))}
-          </CardContent>
-        </Card>
-      ))}
+            ))
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Agent</CardTitle>
+        </CardHeader>
+        <CardContent className="grid gap-4 md:grid-cols-2">
+          {sections.agent.map((def) => (
+            <Field key={def.key} def={def} register={register} errors={errors} />
+          ))}
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>
@@ -218,27 +346,14 @@ export function ListingForm() {
             <Label htmlFor="photoUrls">Photo URLs (comma-separated)</Label>
             <Textarea id="photoUrls" rows={3} {...register("photoUrls")} />
             <p className="text-xs text-muted-foreground">
-              v1 stores URL references only — upload pipeline TBD.
+              v1 stores URL references only. Upload pipeline + per-photo branding flag /
+              MLS-safe variant URLs are TBD — for now, only un-branded URLs are MLS-safe.
             </p>
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="documentUrls">Document URLs (comma-separated)</Label>
             <Textarea id="documentUrls" rows={3} {...register("documentUrls")} />
           </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Subtype-specific details</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-sm text-muted-foreground">
-            <strong className="capitalize">{subtype}</strong> — TODO: fields will appear here once
-            the registry is populated for this subtype. The structural slot exists in{" "}
-            <code>src/fields/registry.ts</code> and storage in{" "}
-            <code>listings.subtype_fields</code> jsonb.
-          </p>
         </CardContent>
       </Card>
 

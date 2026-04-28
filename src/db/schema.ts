@@ -47,7 +47,11 @@ export const listings = pgTable("listings", {
   listingType: listingTypeEnum("listing_type").notNull(),
 
   title: text("title").notNull(),
+  // MLS-safe remarks: no contact info, URLs, phone numbers, lockbox codes,
+  // occupancy mentions, or compensation offers (CMLS rules). Used by paragon-paste.
   publicRemarks: text("public_remarks"),
+  // Marketing copy with branding/contact info allowed. Used by Crexi/LoopNet/site.
+  marketingRemarks: text("marketing_remarks"),
   agentRemarks: text("agent_remarks"),
 
   street: text("street").notNull(),
@@ -83,7 +87,15 @@ export const listingPhotos = pgTable("listing_photos", {
   listingId: uuid("listing_id")
     .notNull()
     .references(() => listings.id, { onDelete: "cascade" }),
+  // Primary upload. May or may not have agent branding/watermarks.
   url: text("url").notNull(),
+  // True if `url` contains agent branding (logos, watermarks, contact info).
+  // CMLS forbids branded photos on MLS, so paragon-paste must filter or use
+  // mlsSafeUrl instead.
+  hasBranding: boolean("has_branding").notNull().default(false),
+  // Optional clean-version pointer. When `hasBranding` is true and this is
+  // null, the photo is unavailable for MLS — surfaced as a compliance warning.
+  mlsSafeUrl: text("mls_safe_url"),
   caption: text("caption"),
   ordering: integer("ordering").notNull().default(0),
   isPrimary: boolean("is_primary").notNull().default(false),

@@ -45,6 +45,26 @@ One **Listing** → many **Destinations** → many **PushAttempts**.
    real uploader (S3 / Railway volume / etc.) when we get there.
 7. **No auth in v1.** Single-user app. Add NextAuth or similar before this
    leaves Angela's machine / a private URL.
+8. **Public vs marketing remarks split.** CMLS rules forbid contact info,
+   URLs, phone numbers, lockbox codes, and occupancy mentions in public
+   remarks; Crexi/LoopNet/her own site allow agent branding. So we keep two
+   columns:
+   - `listings.publicRemarks` — MLS-safe, used by `paragon-paste`
+   - `listings.marketingRemarks` — long-form with branding, used by
+     `crexi`, `loopnet`, and `angela-site`
+   The compliance check at `src/lib/cmls-compliance.ts` regex-scans
+   `publicRemarks` for phone/email/URL/call-text/lockbox/occupancy
+   patterns and surfaces non-blocking warnings on the review screen.
+9. **Photo variants: branded + optional MLS-safe pointer.** We chose the
+   simpler model: each `listing_photos` row has `url` (the primary upload),
+   `hasBranding` (boolean), and `mlsSafeUrl` (nullable text). When a photo
+   has branding, agent uploads a clean version separately and stores its
+   URL in `mlsSafeUrl`. The `mlsSafePhotos()` helper in
+   `src/destinations/types.ts` filters: returns clean photos as-is plus
+   any branded photo's `mlsSafeUrl` when present, skipping branded photos
+   without a clean variant. Rejected alternative: a separate
+   `listing_photo_variants` table — overkill for v1, just two URLs per
+   photo at most.
 
 ## How to add a new destination
 
@@ -120,6 +140,29 @@ changes.
 - API routes live under `src/app/api/...`. Adapters are NEVER called from
   client code directly — always through an API route, so we can add auth /
   rate-limiting / queue offloading later.
+
+## TODOs / unverified
+
+- **Paragon (CMLS) field labels need verification from screenshots of the
+  agent's actual listing entry form.** Current `paragon-paste/mapping.ts`
+  is INFERRED from generic Paragon commercial templates published by a
+  different MLS (CRMLS) and may not match Columbia CMLS exactly. The status
+  enum (ACT/PEN/CSC/etc.) IS verified from CMLS's published cheat sheet.
+  Section ordering, field names, required/optional flags, and dropdown
+  enum values are all TODO. Action: when Angela next sits at Paragon, take
+  screenshots of every section + every dropdown's full option list and
+  diff against the file.
+- **Crexi required/optional flags marked unverified** in
+  `crexi/mapping.ts` — verify once we have an authenticated agent session.
+- **LoopNet field set is incomplete** — the agent-side editor is
+  login-gated and has more fields than `loopnet/mapping.ts` lists.
+- **Subtype-specific Crexi/LoopNet field labels and enum values** in the
+  registry come from public listing pages, not the agent entry forms.
+  Treat label text and exact enum casing as approximate.
+- **Photo upload pipeline is still URL refs only** — no real upload, no
+  per-photo branding-flag UI, no MLS-safe variant upload UX. The schema
+  and destination filtering ARE in place; the form and an uploader are
+  TBD. v1 form treats every URL as un-branded by default.
 
 ## What NOT to do
 

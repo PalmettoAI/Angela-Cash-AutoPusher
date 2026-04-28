@@ -1,9 +1,35 @@
 import type { Listing } from "@/db/schema";
 
+export type ListingPhotoLite = {
+  url: string;
+  caption: string | null;
+  ordering: number;
+  isPrimary: boolean;
+  hasBranding: boolean;
+  mlsSafeUrl: string | null;
+};
+
 export type ListingWithRelations = Listing & {
-  photos?: { url: string; caption: string | null; ordering: number; isPrimary: boolean }[];
+  photos?: ListingPhotoLite[];
   documents?: { url: string; label: string | null; kind: string | null }[];
 };
+
+// Branded photos use `url` directly; clean/MLS-safe variants use `mlsSafeUrl`
+// when present, else the original `url` if it isn't branded.
+export function brandedPhotos(photos: ListingPhotoLite[] | undefined): ListingPhotoLite[] {
+  return photos ?? [];
+}
+
+export function mlsSafePhotos(photos: ListingPhotoLite[] | undefined): { url: string; isPrimary: boolean; ordering: number }[] {
+  if (!photos) return [];
+  return photos
+    .map((p) => {
+      if (!p.hasBranding) return { url: p.url, isPrimary: p.isPrimary, ordering: p.ordering };
+      if (p.mlsSafeUrl) return { url: p.mlsSafeUrl, isPrimary: p.isPrimary, ordering: p.ordering };
+      return null;
+    })
+    .filter((x): x is { url: string; isPrimary: boolean; ordering: number } => x !== null);
+}
 
 export interface DestinationPreviewSection {
   heading: string;

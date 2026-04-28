@@ -1,12 +1,14 @@
 import { logger } from "@/lib/logger";
 import type { DestinationAdapter, ListingWithRelations, PushResult, DestinationPreview } from "../types";
+import { brandedPhotos } from "../types";
 import { angelaSiteMapping } from "./mapping";
 import { fmtCurrency, fmtListingType, fmtLeaseType, fmtText, fullAddress } from "../_shared";
 
 async function buildPayload(l: ListingWithRelations): Promise<Record<string, unknown>> {
   return {
     title: l.title,
-    description: l.publicRemarks ?? "",
+    // angelacash.com is Angela's own site — branding/contact info is welcome.
+    description: l.marketingRemarks ?? l.publicRemarks ?? "",
     category: l.subtype,
     status: l.listingType,
     salePrice: l.salePrice,
@@ -17,7 +19,7 @@ async function buildPayload(l: ListingWithRelations): Promise<Record<string, unk
     yearBuilt: l.yearBuilt,
     zoning: l.zoning,
     agent: { name: l.agentName, email: l.agentEmail, phone: l.agentPhone },
-    photos: (l.photos ?? []).map((p) => ({ url: p.url, primary: p.isPrimary })),
+    photos: brandedPhotos(l.photos).map((p) => ({ url: p.url, primary: p.isPrimary })),
     documents: (l.documents ?? []).map((d) => ({ url: d.url, label: d.label, kind: d.kind })),
   };
 }
@@ -44,7 +46,7 @@ export const angelaSiteAdapter: DestinationAdapter = {
 
   async preview(listing) {
     return {
-      summary: `Internal API push to angelacash.com (${angelaSiteMapping.fields.length} fields mapped, subtype mapping TODO)`,
+      summary: `Internal API push to angelacash.com — uses marketingRemarks + branded photos. ${angelaSiteMapping.fields.length} common fields mapped (subtype mapping TODO).`,
       sections: [
         {
           heading: "Identity",

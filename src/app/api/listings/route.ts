@@ -9,6 +9,7 @@ const createSchema = z.object({
   listingType: z.enum(["for_sale", "for_lease", "both"]),
   title: z.string().min(1),
   publicRemarks: z.string().optional(),
+  marketingRemarks: z.string().optional(),
   agentRemarks: z.string().optional(),
   street: z.string().min(1),
   city: z.string().min(1),
@@ -29,6 +30,10 @@ const createSchema = z.object({
   agentPhone: z.string().optional(),
   photoUrls: z.string().optional(),
   documentUrls: z.string().optional(),
+  // Free-form bag for jsonField + subtype-specific values from the form.
+  // Server doesn't validate the contents — registry validation is form-side
+  // for v1; tighten when the form schema is generated from the registry.
+  subtypeFields: z.record(z.union([z.string(), z.number(), z.boolean()])).optional(),
 });
 
 function splitUrls(s: string | undefined): string[] {
@@ -51,6 +56,7 @@ export async function POST(req: Request) {
       listingType: v.listingType,
       title: v.title,
       publicRemarks: v.publicRemarks ?? null,
+      marketingRemarks: v.marketingRemarks ?? null,
       agentRemarks: v.agentRemarks ?? null,
       street: v.street,
       city: v.city,
@@ -69,7 +75,7 @@ export async function POST(req: Request) {
       agentName: v.agentName,
       agentEmail: v.agentEmail,
       agentPhone: v.agentPhone ?? null,
-      subtypeFields: {},
+      subtypeFields: v.subtypeFields ?? {},
     })
     .returning();
 
