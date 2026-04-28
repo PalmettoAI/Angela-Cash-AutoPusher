@@ -159,10 +159,18 @@ changes.
 - **Subtype-specific Crexi/LoopNet field labels and enum values** in the
   registry come from public listing pages, not the agent entry forms.
   Treat label text and exact enum casing as approximate.
-- **Photo upload pipeline is still URL refs only** — no real upload, no
-  per-photo branding-flag UI, no MLS-safe variant upload UX. The schema
-  and destination filtering ARE in place; the form and an uploader are
-  TBD. v1 form treats every URL as un-branded by default.
+- **Photo upload pipeline is now live** — drop-zone UI in the form,
+  `POST /api/uploads` writes to `/app/uploads/<uuid>/<filename>`,
+  `GET /api/uploads/[id]/[filename]` serves them back. Storage is a Railway
+  volume in production, falls back to `./uploads` locally
+  (`UPLOAD_DIR` env var override). Per-photo "branded" toggle persists into
+  `listing_photos.has_branding`. **Still TODO**: separate upload slot for
+  the MLS-safe variant of a branded photo (currently a branded photo with
+  no clean variant just gets filtered out by `mlsSafePhotos()`).
+- **Container runs as root** so the volume mount at `/app/uploads` is
+  writable. Single-tenant app — the trust boundary is Railway, not the
+  container user. Re-introduce `USER nextjs` with proper volume perms if
+  this becomes multi-tenant.
 
 ## What NOT to do
 

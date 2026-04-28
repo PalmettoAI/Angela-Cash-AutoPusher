@@ -28,18 +28,22 @@ const createSchema = z.object({
   agentName: z.string().min(1),
   agentEmail: z.string().min(1),
   agentPhone: z.string().optional(),
-  photoUrls: z.string().optional(),
-  documentUrls: z.string().optional(),
+  photos: z.array(z.object({
+    url: z.string(),
+    hasBranding: z.boolean().optional(),
+    mlsSafeUrl: z.string().nullable().optional(),
+    caption: z.string().optional(),
+  })).optional(),
+  documents: z.array(z.object({
+    url: z.string(),
+    label: z.string().optional(),
+    kind: z.string().optional(),
+  })).optional(),
   // Free-form bag for jsonField + subtype-specific values from the form.
   // Server doesn't validate the contents — registry validation is form-side
   // for v1; tighten when the form schema is generated from the registry.
   subtypeFields: z.record(z.union([z.string(), z.number(), z.boolean()])).optional(),
 });
-
-function splitUrls(s: string | undefined): string[] {
-  if (!s) return [];
-  return s.split(/[\n,]+/).map((x) => x.trim()).filter(Boolean);
-}
 
 export async function POST(req: Request) {
   const json = await req.json();
@@ -79,17 +83,22 @@ export async function POST(req: Request) {
     })
     .returning();
 
-  const photoRows = splitUrls(v.photoUrls).map((url, i) => ({
+  const photoRows = (v.photos ?? []).map((p, i) => ({
     listingId: row.id,
-    url,
+    url: p.url,
+    hasBranding: p.hasBranding ?? false,
+    mlsSafeUrl: p.mlsSafeUrl ?? null,
+    caption: p.caption ?? null,
     ordering: i,
     isPrimary: i === 0,
   }));
   if (photoRows.length) await db.insert(listingPhotos).values(photoRows);
 
-  const docRows = splitUrls(v.documentUrls).map((url) => ({
+  const docRows = (v.documents ?? []).map((d) => ({
     listingId: row.id,
-    url,
+    url: d.url,
+    label: d.label ?? null,
+    kind: d.kind ?? null,
   }));
   if (docRows.length) await db.insert(listingDocuments).values(docRows);
 

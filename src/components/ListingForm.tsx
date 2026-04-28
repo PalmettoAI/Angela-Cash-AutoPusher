@@ -13,6 +13,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ALL_SUBTYPES, SUBTYPE_LABELS, type Subtype } from "@/fields/types";
 import { fieldsBySection } from "@/fields/registry";
 import type { FieldDef } from "@/fields/types";
+import { FileDropZone, type UploadedItem } from "@/components/FileDropZone";
 
 const numericString = z
   .union([z.string(), z.number()])
@@ -47,8 +48,6 @@ const formSchema = z.object({
   agentName: z.string().min(1, "Required"),
   agentEmail: z.string().min(1, "Required"),
   agentPhone: z.string().optional(),
-  photoUrls: z.string().optional(),
-  documentUrls: z.string().optional(),
   // All subtype-specific + jsonField universal fields are passed in this map.
   subtypeFields: z.record(z.union([z.string(), z.number(), z.boolean()])).optional(),
 });
@@ -198,6 +197,8 @@ export function ListingForm() {
   const router = useRouter();
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [photos, setPhotos] = useState<UploadedItem[]>([]);
+  const [documents, setDocuments] = useState<UploadedItem[]>([]);
 
   const {
     register,
@@ -227,7 +228,15 @@ export function ListingForm() {
       const res = await fetch("/api/listings", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(values),
+        body: JSON.stringify({
+          ...values,
+          photos: photos.map((p) => ({
+            url: p.url,
+            hasBranding: !!p.hasBranding,
+            mlsSafeUrl: p.mlsSafeUrl ?? null,
+          })),
+          documents: documents.map((d) => ({ url: d.url, label: d.filename })),
+        }),
       });
       if (!res.ok) {
         const text = await res.text();
@@ -341,19 +350,20 @@ export function ListingForm() {
         <CardHeader>
           <CardTitle>Photos & documents</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-1.5">
-            <Label htmlFor="photoUrls">Photo URLs (comma-separated)</Label>
-            <Textarea id="photoUrls" rows={3} {...register("photoUrls")} />
-            <p className="text-xs text-muted-foreground">
-              v1 stores URL references only. Upload pipeline + per-photo branding flag /
-              MLS-safe variant URLs are TBD — for now, only un-branded URLs are MLS-safe.
-            </p>
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="documentUrls">Document URLs (comma-separated)</Label>
-            <Textarea id="documentUrls" rows={3} {...register("documentUrls")} />
-          </div>
+        <CardContent className="space-y-6">
+          <FileDropZone
+            label="Photos"
+            variant="photo"
+            value={photos}
+            onChange={setPhotos}
+            helpText="Drop or click to upload. Tick 'Branded' on any photo with logos / watermarks / contact info — CMLS forbids branded photos on MLS, so paragon-paste will skip them unless you upload a clean variant."
+          />
+          <FileDropZone
+            label="Documents (flyer, OM, financials, etc.)"
+            variant="document"
+            value={documents}
+            onChange={setDocuments}
+          />
         </CardContent>
       </Card>
 
