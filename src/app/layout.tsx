@@ -1,31 +1,18 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import "./globals.css";
+import { SiteHeader } from "@/components/SiteHeader";
 
 export const metadata: Metadata = {
-  title: "Angela Cash Listing Push Hub",
-  description: "Single-entry listing form that pushes to Crexi, LoopNet, angelacash.com, and Paragon.",
+  title: "Angela's Listing Pusher",
+  description:
+    "Fill in a listing once — push it to Crexi, LoopNet, and Paragon in one go.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
       <body>
-        <header className="border-b">
-          <div className="container flex h-14 items-center justify-between">
-            <Link href="/" className="font-semibold">
-              Listing Push Hub
-            </Link>
-            <nav className="flex gap-4 text-sm">
-              <Link href="/" className="hover:underline">
-                Dashboard
-              </Link>
-              <Link href="/listings/new" className="hover:underline">
-                New listing
-              </Link>
-            </nav>
-          </div>
-        </header>
+        <SiteHeader />
         <main className="container py-8">{children}</main>
       </body>
     </html>
