@@ -1,18 +1,20 @@
 // In-memory store for active push runs.
 //
 // A "run" = one listing being pushed through the portals in one sitting. It
-// persists between HTTP requests — hence a module-level Map. This is sound
-// here because the AutoPusher is a single-user app on a single Railway
-// instance. If the instance restarts mid-push the run is lost; Angela simply
-// starts again (Steel reaps the orphaned session). Do NOT move to
-// multi-instance without a shared store.
+// holds the live Playwright Browser/Page, so it must persist between HTTP
+// requests — hence a module-level Map. Sound here because the AutoPusher is
+// single-user on a single Railway instance. If the instance restarts
+// mid-push the run is lost; Angela just starts again (Steel reaps the
+// orphaned session). Do NOT move to multi-instance without a shared store.
 //
-// Playwright is connected fresh per operation (connect → act → disconnect)
-// against the persistent Steel session, so no live browser handle is stored
-// here — that avoids holding a CDP socket open while Angela logs in.
+// The Playwright connection is held OPEN for the whole run: Steel ends a
+// session when its CDP client disconnects, so one persistent connection is
+// required — reconnecting per step would tear down Angela's logins.
+
+import type { Browser, Page } from "playwright-core";
 
 export type PushPhase =
-  | "awaiting_login" // Angela must log in + open the portal's new-listing form
+  | "awaiting_login" // Angela logs in + opens the portal's new-listing form
   | "filling" //        the engine is filling the form right now
   | "awaiting_review" // filled (or assisted) — Angela reviews + submits herself
   | "done" //           every portal handled
@@ -34,7 +36,6 @@ export interface PushRun {
   listingTitle: string;
   listingSubtype: string;
   steelSessionId: string;
-  viewerUrl: string;
   cdpUrl: string; // private — never sent to the client
   portals: PortalProgress[];
   currentIndex: number;
@@ -43,13 +44,15 @@ export interface PushRun {
   error: string | null;
   createdAt: number;
   busy: boolean; // guards against overlapping advance() calls
+  // live Playwright handles — held open for the whole run, never serialized
+  browser?: Browser;
+  page?: Page;
 }
 
 /** Client-safe projection of a run (no CDP URL, no Playwright handles). */
 export interface PushRunView {
   id: string;
   listingTitle: string;
-  viewerUrl: string;
   portals: PortalProgress[];
   currentIndex: number;
   phase: PushPhase;
@@ -72,24 +75,20 @@ export function removeRun(id: string): void {
 }
 
 /**
- * Clear every run and return their Steel session ids. The AutoPusher is
- * single-user, so starting a new push supersedes any earlier one — this is
- * called at run start to free the browser sessions of abandoned runs.
+ * Clear every run and return them. The AutoPusher is single-user, so starting
+ * a new push supersedes any earlier one — this is called at run start so the
+ * caller can close the old browser connections and release their sessions.
  */
-export function takeAllRuns(): string[] {
-  const ids: string[] = [];
-  for (const run of RUNS.values()) {
-    if (run.steelSessionId) ids.push(run.steelSessionId);
-  }
+export function takeAllRuns(): PushRun[] {
+  const all = [...RUNS.values()];
   RUNS.clear();
-  return ids;
+  return all;
 }
 
 export function toView(run: PushRun): PushRunView {
   return {
     id: run.id,
     listingTitle: run.listingTitle,
-    viewerUrl: run.viewerUrl,
     portals: run.portals,
     currentIndex: run.currentIndex,
     phase: run.phase,

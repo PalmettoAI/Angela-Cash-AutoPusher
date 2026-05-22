@@ -1,5 +1,6 @@
-// The Playwright side of the push: connect to a Steel session over CDP,
-// drive the page, and fill a portal's create-listing form from the listing.
+// The Playwright side of the push: connect to a Steel session over CDP, drive
+// the page, render screenshots for the viewer, forward Angela's input, and
+// fill a portal's create-listing form from the listing.
 //
 // Field-fill is label-driven and best-effort. Crexi/LoopNet agent forms are
 // login-gated, so exact selectors can't be verified without Angela's session;
@@ -28,19 +29,58 @@ export interface FillReport {
   skipped: string[];
 }
 
+/** A user input event from the embedded viewer, normalised to 0..1 fractions. */
+export type InputEvent =
+  | { kind: "click"; xFrac: number; yFrac: number }
+  | { kind: "dblclick"; xFrac: number; yFrac: number }
+  | { kind: "scroll"; dy: number }
+  | { kind: "text"; text: string }
+  | { kind: "key"; key: string };
+
+export const VIEWPORT = { width: 1280, height: 800 };
+
 /** Connect Playwright to a running Steel session and grab a usable page. */
 export async function connectToSteel(cdpUrl: string): Promise<ConnectedBrowser> {
-  const browser = await chromium.connectOverCDP(cdpUrl);
+  const browser = await chromium.connectOverCDP(cdpUrl, { timeout: 30_000 });
   const context = browser.contexts()[0] ?? (await browser.newContext());
   const page = context.pages()[0] ?? (await context.newPage());
+  // Pin a predictable viewport so viewer screenshots and click mapping line up.
+  await page.setViewportSize(VIEWPORT).catch(() => {});
   return { browser, page };
 }
 
 /** Navigate to a portal URL and wait for the page to settle. */
 export async function gotoPortal(page: Page, url: string): Promise<void> {
   await page.goto(url, { waitUntil: "domcontentloaded", timeout: 45_000 });
-  // Best-effort settle; never throw if the network stays chatty.
   await page.waitForLoadState("networkidle", { timeout: 8_000 }).catch(() => {});
+}
+
+/** JPEG screenshot of the current viewport, for the live viewer. */
+export async function captureScreenshot(page: Page): Promise<Buffer> {
+  return page.screenshot({ type: "jpeg", quality: 55, timeout: 8_000 });
+}
+
+/** Apply one viewer input event to the page. */
+export async function forwardInput(page: Page, ev: InputEvent): Promise<void> {
+  const vp = page.viewportSize() ?? VIEWPORT;
+  const clamp = (f: number) => Math.max(0, Math.min(1, f));
+  switch (ev.kind) {
+    case "click":
+      await page.mouse.click(clamp(ev.xFrac) * vp.width, clamp(ev.yFrac) * vp.height);
+      break;
+    case "dblclick":
+      await page.mouse.dblclick(clamp(ev.xFrac) * vp.width, clamp(ev.yFrac) * vp.height);
+      break;
+    case "scroll":
+      await page.mouse.wheel(0, ev.dy);
+      break;
+    case "text":
+      await page.keyboard.type(ev.text);
+      break;
+    case "key":
+      await page.keyboard.press(ev.key);
+      break;
+  }
 }
 
 /** Resolve a mapping's source field from the listing (column or jsonb key). */
@@ -69,8 +109,10 @@ export async function fillForm(
 
   for (const field of fields) {
     let value = resolveValue(listing, field.listing);
-    if ((value === undefined || value === null || value === "") &&
-        field.defaultValue !== undefined) {
+    if (
+      (value === undefined || value === null || value === "") &&
+      field.defaultValue !== undefined
+    ) {
       value = field.defaultValue;
     }
     if (value === undefined || value === null || value === "") continue;
@@ -91,9 +133,7 @@ export async function fillForm(
       await input.waitFor({ state: "visible", timeout: 3_500 });
       const tag = await input.evaluate((el) => el.tagName.toLowerCase());
       if (tag === "select") {
-        await input.selectOption({ label: text }).catch(async () => {
-          await input.selectOption(text);
-        });
+        await input.selectOption({ label: text }).catch(() => input.selectOption(text));
       } else {
         await input.fill(text, { timeout: 3_500 });
       }

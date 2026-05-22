@@ -1,18 +1,13 @@
 // GET    /api/push/[runId]  — current run state (UI polls this)
 // POST   /api/push/[runId]  — advance the run ({ action: "advance" | "skip" })
-// DELETE /api/push/[runId]  — end the run, release the Steel session
+// DELETE /api/push/[runId]  — end the run, close the browser, release Steel
 
 import { NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { listings, pushAttempts } from "@/db/schema";
 import { releaseSteelSession } from "@/lib/steel";
-import {
-  connectToSteel,
-  gotoPortal,
-  fillForm,
-  disconnect,
-} from "@/lib/browser-push/engine";
+import { gotoPortal, fillForm, disconnect } from "@/lib/browser-push/engine";
 import { PORTALS } from "@/lib/browser-push/portals";
 import {
   getRun,
@@ -37,6 +32,7 @@ export async function GET(_req: Request, { params }: RouteCtx) {
 export async function DELETE(_req: Request, { params }: RouteCtx) {
   const run = getRun(params.runId);
   if (run) {
+    await disconnect(run.browser);
     await releaseSteelSession(run.steelSessionId);
     removeRun(run.id);
   }
@@ -50,8 +46,8 @@ export async function POST(req: Request, { params }: RouteCtx) {
   const body = await req.json().catch(() => ({}));
   const action: "advance" | "skip" = body?.action === "skip" ? "skip" : "advance";
 
-  // Claim the run atomically. There must be NO `await` between reading
-  // run.busy and setting it, so two overlapping clicks can't both proceed.
+  // Claim the run atomically. No `await` between reading run.busy and setting
+  // it, so two overlapping clicks can't both proceed.
   if (run.busy) return NextResponse.json(toView(run));
   if (run.phase === "done" || run.phase === "failed") {
     return NextResponse.json(toView(run));
@@ -67,7 +63,6 @@ export async function POST(req: Request, { params }: RouteCtx) {
     }
     run.error = null;
   } catch (e) {
-    // Fatal (can't reach Steel, listing gone) — stop the run.
     const msg = e instanceof Error ? e.message : String(e);
     logger.error({ runId: run.id, err: msg }, "push advance failed");
     run.phase = "failed";
@@ -75,6 +70,8 @@ export async function POST(req: Request, { params }: RouteCtx) {
     run.message = `Something went wrong: ${msg}`;
     const portal = run.portals[run.currentIndex];
     if (portal) portal.status = "failed";
+    await disconnect(run.browser);
+    await releaseSteelSession(run.steelSessionId);
   } finally {
     run.busy = false;
     saveRun(run);
@@ -100,6 +97,7 @@ async function handleLoginPhase(run: PushRun, action: "advance" | "skip") {
     run.phase = "filling";
     saveRun(run);
     try {
+      if (!run.page) throw new Error("Browser is not connected");
       const [listing] = await db
         .select()
         .from(listings)
@@ -107,15 +105,10 @@ async function handleLoginPhase(run: PushRun, action: "advance" | "skip") {
       if (!listing) throw new Error("Listing not found");
 
       const fields = portal.getFields(run.listingSubtype);
-      const { browser, page } = await connectToSteel(run.cdpUrl);
-      try {
-        const report = await fillForm(page, listing, fields);
-        run.portals[run.currentIndex].note =
-          `Bot filled ${report.filled.length} field(s); ` +
-          `${report.skipped.length} need a manual check`;
-      } finally {
-        await disconnect(browser);
-      }
+      const report = await fillForm(run.page, listing, fields);
+      run.portals[run.currentIndex].note =
+        `Bot filled ${report.filled.length} field(s); ` +
+        `${report.skipped.length} need a manual check`;
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       logger.warn({ runId: run.id, err: msg }, "auto-fill failed (non-fatal)");
@@ -136,6 +129,7 @@ async function goToNextPortal(run: PushRun) {
     run.phase = "done";
     run.message =
       "All done — every site has been handled. You can close this window.";
+    await disconnect(run.browser);
     await releaseSteelSession(run.steelSessionId);
     return;
   }
@@ -147,12 +141,7 @@ async function goToNextPortal(run: PushRun) {
 
   // Open the next portal for her. Non-fatal if it doesn't — she can navigate.
   try {
-    const { browser, page } = await connectToSteel(run.cdpUrl);
-    try {
-      await gotoPortal(page, next.startUrl);
-    } finally {
-      await disconnect(browser);
-    }
+    if (run.page) await gotoPortal(run.page, next.startUrl);
   } catch (e) {
     logger.warn(
       { runId: run.id, err: e instanceof Error ? e.message : String(e) },

@@ -1,13 +1,14 @@
 "use client";
 
 // The guided push screen. Angela watches the real browser in the embedded
-// Steel viewer, does her own logins in it, and the bot fills the forms.
-// Designed to be obvious for a non-technical user: one big instruction,
-// one big button, a 3-step checklist.
+// viewer, does her own logins in it, and the bot fills the forms. Designed to
+// be obvious for a non-technical user: one big instruction, one big button,
+// a 3-step checklist.
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { BrowserViewer } from "./browser-viewer";
 import type { PushRunView } from "@/lib/browser-push/runs";
 
 export function PushFlow({
@@ -138,6 +139,9 @@ export function PushFlow({
 
   const current = run.portals[run.currentIndex];
   const isLast = run.currentIndex >= run.portals.length - 1;
+  const showViewer = run.phase !== "done" && run.phase !== "failed";
+  const viewerInteractive =
+    run.phase === "awaiting_login" || run.phase === "awaiting_review";
 
   return (
     <Shell title={listingTitle} onEnd={end}>
@@ -168,7 +172,9 @@ export function PushFlow({
         ) : (
           <>
             <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              {current ? `Step ${run.currentIndex + 1} of ${run.portals.length} · ${current.displayName}` : "Working"}
+              {current
+                ? `Step ${run.currentIndex + 1} of ${run.portals.length} · ${current.displayName}`
+                : "Working"}
             </p>
             <p className="mt-1 text-base">{run.message}</p>
             {current?.note && (
@@ -230,19 +236,8 @@ export function PushFlow({
       </div>
 
       {/* live browser */}
-      {run.phase !== "done" && run.phase !== "failed" && (
-        <div>
-          <iframe
-            src={run.viewerUrl}
-            title="Live browser"
-            className="h-[600px] w-full rounded-lg border bg-muted"
-            allow="clipboard-read; clipboard-write"
-          />
-          <p className="mt-2 text-center text-xs text-muted-foreground">
-            This is the real browser. Type your logins straight into the window
-            above — nothing is stored.
-          </p>
-        </div>
+      {showViewer && (
+        <BrowserViewer runId={run.id} interactive={viewerInteractive} />
       )}
     </Shell>
   );
@@ -289,6 +284,12 @@ function StepMark({
   if (status === "failed")
     return <span className={base + "bg-destructive text-white"}>✕</span>;
   if (status === "active")
-    return <span className={base + "bg-primary text-primary-foreground"}>{index + 1}</span>;
-  return <span className={base + "bg-muted text-muted-foreground"}>{index + 1}</span>;
+    return (
+      <span className={base + "bg-primary text-primary-foreground"}>
+        {index + 1}
+      </span>
+    );
+  return (
+    <span className={base + "bg-muted text-muted-foreground"}>{index + 1}</span>
+  );
 }

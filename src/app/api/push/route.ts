@@ -1,8 +1,8 @@
 // POST /api/push — start a guided push run for a listing.
 //
-// Creates a Steel browser session, opens the first portal in it, and returns
-// a run the UI can poll/advance. Heavy work (browser I/O) runs here on the
-// Node runtime — fine on Railway's long-lived server.
+// Creates a Steel browser session, opens a persistent Playwright connection
+// (held for the whole run — Steel ends a session when its CDP client
+// disconnects), opens the first portal, and returns a run the UI can poll.
 
 import { NextResponse } from "next/server";
 import { randomUUID } from "crypto";
@@ -33,10 +33,11 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Listing not found" }, { status: 404 });
   }
 
-  // Single-user app: a new push supersedes any earlier run. Free their
-  // browser sessions before opening another.
-  for (const staleSession of takeAllRuns()) {
-    await releaseSteelSession(staleSession);
+  // Single-user app: a new push supersedes any earlier run. Close their
+  // browser connections and free their Steel sessions.
+  for (const old of takeAllRuns()) {
+    await disconnect(old.browser);
+    await releaseSteelSession(old.steelSessionId);
   }
 
   let session;
@@ -55,7 +56,6 @@ export async function POST(req: Request) {
     listingTitle: listing.title,
     listingSubtype: listing.subtype,
     steelSessionId: session.id,
-    viewerUrl: session.viewerUrl,
     cdpUrl: session.cdpUrl,
     portals: PORTALS.map((p) => ({
       key: p.key,
@@ -72,15 +72,14 @@ export async function POST(req: Request) {
   };
   run.portals[0].status = "active";
 
-  // Open the first portal so Angela sees it the moment the viewer loads.
+  // Open one persistent connection and navigate to the first portal.
   try {
     const { browser, page } = await connectToSteel(session.cdpUrl);
-    try {
-      await gotoPortal(page, first.startUrl);
-    } finally {
-      await disconnect(browser);
-    }
+    run.browser = browser;
+    run.page = page;
+    await gotoPortal(page, first.startUrl);
   } catch (e) {
+    await disconnect(run.browser);
     await releaseSteelSession(session.id);
     const msg = e instanceof Error ? e.message : String(e);
     logger.error({ err: msg }, "push start: could not open first portal");
