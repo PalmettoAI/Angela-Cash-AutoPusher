@@ -130,12 +130,14 @@ export async function fillForm(
 
     try {
       const input = page.getByLabel(field.target, { exact: false }).first();
-      await input.waitFor({ state: "visible", timeout: 3_500 });
+      // Short per-field timeout: a real field appears fast; this only bounds
+      // how long a MISS costs, keeping the whole fill snappy on a live form.
+      await input.waitFor({ state: "visible", timeout: 1_500 });
       const tag = await input.evaluate((el) => el.tagName.toLowerCase());
       if (tag === "select") {
         await input.selectOption({ label: text }).catch(() => input.selectOption(text));
       } else {
-        await input.fill(text, { timeout: 3_500 });
+        await input.fill(text, { timeout: 2_000 });
       }
       filled.push(field.target);
     } catch {
