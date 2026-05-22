@@ -38,8 +38,11 @@ export default async function ListingDetailPage({ params }: { params: { id: stri
           </p>
         </div>
         <div className="flex gap-2">
+          <Button asChild>
+            <Link href={`/listings/${row.id}/push`}>Push to all sites</Link>
+          </Button>
           <Button asChild variant="outline">
-            <Link href={`/listings/${row.id}/review`}>Review & push</Link>
+            <Link href={`/listings/${row.id}/review`}>Review</Link>
           </Button>
           <Button asChild variant="ghost">
             <Link href={`/listings/${row.id}/paragon`}>Paragon paste</Link>

@@ -83,6 +83,9 @@ export default async function DashboardPage() {
                 </div>
               </CardHeader>
               <CardContent className="flex gap-2">
+                <Button asChild size="sm">
+                  <Link href={`/listings/${l.id}/push`}>Push to all sites</Link>
+                </Button>
                 <Button asChild size="sm" variant="outline">
                   <Link href={`/listings/${l.id}/review`}>Review</Link>
                 </Button>
