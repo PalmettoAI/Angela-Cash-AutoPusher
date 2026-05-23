@@ -60,6 +60,38 @@ export const crexiCommonMapping: FieldMap[] = [
   { listing: "agentEmail", target: "Agent Email",
     defaultValue: "angela@angelacash.com" },
   { listing: "agentPhone", target: "Agent Phone" },
+
+  // ── universal commercial additions (added 2026-05-22). Labels are best-
+  // guess Crexi UI labels; getByLabel runs partial match so close hits land.
+  { listing: "highlights", target: "Property Highlights" },
+  { listing: "videoUrl", target: "Video URL" },
+  { listing: "virtualTourUrl", target: "Virtual Tour" },
+  { listing: "listingStatus", target: "Status" },
+  { listing: "mlsNumber", target: "MLS #" },
+  { listing: "saleType", target: "Sale Type" },
+  { listing: "operatingExpenses", target: "Operating Expenses" },
+  { listing: "leaseRateUnit", target: "Rent Unit" },
+  { listing: "tiAllowance", target: "TI Allowance" },
+  { listing: "freeRentMonths", target: "Free Rent" },
+  { listing: "commonAreaFactor", target: "Load Factor" },
+  { listing: "constructionType", target: "Construction" },
+  { listing: "roofType", target: "Roof" },
+  { listing: "hvacType", target: "HVAC" },
+  { listing: "heatingType", target: "Heating" },
+  { listing: "coolingType", target: "Cooling" },
+  { listing: "sprinklered", target: "Sprinklers" },
+  { listing: "adaCompliant", target: "ADA" },
+  { listing: "numElevators", target: "Elevators" },
+  { listing: "buildingAmenities", target: "Amenities" },
+  { listing: "sewerType", target: "Sewer" },
+  { listing: "waterSource", target: "Water" },
+  { listing: "brokerage", target: "Brokerage" },
+  { listing: "agentLicense", target: "License #" },
+  { listing: "coAgentName", target: "Co-Listing Agent" },
+  { listing: "coAgentEmail", target: "Co-Listing Email" },
+  { listing: "coAgentPhone", target: "Co-Listing Phone" },
+  { listing: "floodZone", target: "Flood Zone" },
+  { listing: "showingInstructions", target: "Broker Remarks" },
 ];
 
 export const crexiSubtypeMappings: Record<Subtype, FieldMap[]> = {

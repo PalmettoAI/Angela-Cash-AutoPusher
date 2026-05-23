@@ -50,6 +50,38 @@ export const loopnetCommonMapping: FieldMap[] = [
   { listing: "agentName", target: "Broker", defaultValue: "Angela Cash" },
   { listing: "agentEmail", target: "Broker Email", defaultValue: "angela@angelacash.com" },
   { listing: "agentPhone", target: "Broker Phone" },
+
+  // ── universal commercial additions (added 2026-05-22). Labels are best-
+  // guess LoopNet UI labels; getByLabel runs partial match.
+  { listing: "highlights", target: "Highlights" },
+  { listing: "videoUrl", target: "Property Video URL" },
+  { listing: "virtualTourUrl", target: "Virtual Tour URL" },
+  { listing: "listingStatus", target: "Status" },
+  { listing: "mlsNumber", target: "MLS Number" },
+  { listing: "saleType", target: "Sale Type" },
+  { listing: "operatingExpenses", target: "Operating Expenses" },
+  { listing: "leaseRateUnit", target: "Asking Rent Type" },
+  { listing: "tiAllowance", target: "Tenant Improvements" },
+  { listing: "freeRentMonths", target: "Free Rent (Months)" },
+  { listing: "commonAreaFactor", target: "Common Area Factor" },
+  { listing: "constructionType", target: "Construction Type" },
+  { listing: "roofType", target: "Roof" },
+  { listing: "hvacType", target: "HVAC" },
+  { listing: "heatingType", target: "Heating" },
+  { listing: "coolingType", target: "Cooling" },
+  { listing: "sprinklered", target: "Sprinklers" },
+  { listing: "adaCompliant", target: "ADA Compliant" },
+  { listing: "numElevators", target: "No. Elevators" },
+  { listing: "buildingAmenities", target: "Building Amenities" },
+  { listing: "sewerType", target: "Sewer" },
+  { listing: "waterSource", target: "Water" },
+  { listing: "brokerage", target: "Brokerage Firm" },
+  { listing: "agentLicense", target: "License Number" },
+  { listing: "coAgentName", target: "Co-Broker" },
+  { listing: "coAgentEmail", target: "Co-Broker Email" },
+  { listing: "coAgentPhone", target: "Co-Broker Phone" },
+  { listing: "floodZone", target: "Flood Zone" },
+  { listing: "showingInstructions", target: "Broker Remarks" },
 ];
 
 export const loopnetSubtypeMappings: Record<Subtype, FieldMap[]> = {
