@@ -8,7 +8,10 @@
 // it could and couldn't place so the gaps are visible (and refinable later).
 
 import { chromium, type Browser, type Page } from "playwright-core";
-import type { ListingWithRelations } from "@/destinations/types";
+import { join } from "node:path";
+import { existsSync } from "node:fs";
+import type { ListingWithRelations, ListingPhotoLite } from "@/destinations/types";
+import { UPLOAD_ROOT } from "@/lib/upload-storage";
 import { logger } from "@/lib/logger";
 
 /** Structural shape of a mapping entry — matches crexi/loopnet FieldMap. */
@@ -151,6 +154,62 @@ export async function fillForm(
     "Portal form fill complete",
   );
   return { filled, skipped };
+}
+
+// ── photo upload ───────────────────────────────────────────────────────────
+
+/** Map an upload URL (`/api/uploads/<id>/<name>`) to the local file path. */
+function uploadUrlToLocalPath(url: string): string | null {
+  const m = url.match(/^\/api\/uploads\/([0-9a-f-]{36})\/(.+)$/i);
+  if (!m) return null;
+  const path = join(UPLOAD_ROOT, m[1], decodeURIComponent(m[2]));
+  return existsSync(path) ? path : null;
+}
+
+export interface UploadReport {
+  uploaded: number;
+  reason?: string;
+}
+
+/**
+ * Upload listing photos via any visible file input on the current page.
+ * Best-effort: prefers image-accepting inputs, then falls back to any file
+ * input. Non-fatal — if nothing matches, returns `{uploaded:0}` with a reason
+ * and the bot moves on; Angela can drop them in by hand in the viewer.
+ */
+export async function uploadPhotos(
+  page: Page,
+  photos: ListingPhotoLite[] | undefined,
+): Promise<UploadReport> {
+  if (!photos || photos.length === 0) return { uploaded: 0, reason: "no photos on listing" };
+  const paths = photos
+    .map((p) => uploadUrlToLocalPath(p.url))
+    .filter((p): p is string => !!p);
+  if (paths.length === 0) {
+    return { uploaded: 0, reason: "photos aren't local uploads (external URLs)" };
+  }
+
+  // Best-effort selectors, most specific first.
+  const candidates = [
+    'input[type="file"][accept*="image"]',
+    'input[type="file"][multiple]',
+    'input[type="file"]',
+  ];
+  for (const sel of candidates) {
+    try {
+      const input = page.locator(sel).first();
+      if ((await input.count()) === 0) continue;
+      await input.setInputFiles(paths, { timeout: 15_000 });
+      logger.info({ count: paths.length, selector: sel }, "Photos uploaded to portal");
+      return { uploaded: paths.length };
+    } catch (e) {
+      logger.warn(
+        { selector: sel, err: e instanceof Error ? e.message : String(e) },
+        "Photo upload attempt failed, trying next selector",
+      );
+    }
+  }
+  return { uploaded: 0, reason: "no file input found on the page" };
 }
 
 /** Drop the Playwright connection. Does NOT close Steel's browser itself. */

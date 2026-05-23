@@ -319,6 +319,146 @@ export const FIELD_REGISTRY: FieldDef[] = [
       { value: "multifamily", label: "Multifamily" },
       { value: "land", label: "Land" },
     ] },
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // Universal commercial fields (apply across subtypes; jsonField stored in
+  // listings.subtype_fields). Added 2026-05-22 from a real Crexi / LoopNet /
+  // Paragon (CMLS / RESO) field survey — these are what commercial portals
+  // expect in addition to the basics above.
+  // ═══════════════════════════════════════════════════════════════════════
+
+  // ─── identity / marketing / media ─────────────────────────────────────
+  { key: "listingStatus", label: "Listing status", kind: "select", jsonField: true, section: "identity",
+    helpText: "Active by default. Update when the deal moves.",
+    options: [
+      { value: "active", label: "Active" },
+      { value: "pending", label: "Pending" },
+      { value: "under_contract", label: "Under Contract" },
+      { value: "sold", label: "Sold" },
+      { value: "leased", label: "Leased" },
+      { value: "withdrawn", label: "Withdrawn" },
+      { value: "off_market", label: "Off Market" },
+    ] },
+  { key: "mlsNumber", label: "MLS / Paragon #", kind: "text", jsonField: true, section: "identity" },
+  { key: "highlights", label: "Property highlights (one per line)", kind: "textarea", jsonField: true, section: "identity",
+    helpText: "Crexi shows these as bullet selling points at the top of the listing." },
+  { key: "videoUrl", label: "Video URL (YouTube / Vimeo)", kind: "text", jsonField: true, section: "identity" },
+  { key: "virtualTourUrl", label: "Virtual tour URL (Matterport / 3D)", kind: "text", jsonField: true, section: "identity" },
+  { key: "showingInstructions", label: "Showing instructions (agent-only)", kind: "textarea", jsonField: true, section: "identity",
+    helpText: "Not shown publicly. e.g. 'Call agent for combo, business hours only.'" },
+
+  // ─── pricing / financial / lease terms ────────────────────────────────
+  { key: "saleType", label: "Sale type", kind: "select", jsonField: true, section: "pricing",
+    options: [
+      { value: "investment", label: "Investment" },
+      { value: "owner_user", label: "Owner / User" },
+      { value: "distressed", label: "Distressed" },
+      { value: "auction", label: "Auction" },
+      { value: "1031_exchange", label: "1031 Exchange" },
+    ] },
+  { key: "pricePerSqft", label: "Price / SF (override)", kind: "currency", jsonField: true, section: "pricing",
+    helpText: "Leave blank to let portals compute it from sale price ÷ building sqft." },
+  { key: "operatingExpenses", label: "Operating expenses ($/yr)", kind: "currency", jsonField: true, section: "pricing" },
+  { key: "leaseRateUnit", label: "Lease rate unit", kind: "select", jsonField: true, section: "pricing",
+    appliesToSubtypes: ["office", "retail", "industrial", "multifamily", "mixed_use"],
+    options: [
+      { value: "sf_yr", label: "$/SF/yr" },
+      { value: "sf_mo", label: "$/SF/mo" },
+      { value: "mo_total", label: "$/mo total" },
+      { value: "yr_total", label: "$/yr total" },
+    ] },
+  { key: "tiAllowance", label: "Tenant improvement allowance ($/SF)", kind: "currency", jsonField: true, section: "pricing",
+    appliesToSubtypes: ALL_BUT_LAND },
+  { key: "freeRentMonths", label: "Free rent (months)", kind: "number", jsonField: true, section: "pricing",
+    appliesToSubtypes: ALL_BUT_LAND },
+  { key: "commonAreaFactor", label: "Common area factor / load factor (%)", kind: "percent", jsonField: true, section: "pricing",
+    appliesToSubtypes: ["office", "retail", "industrial", "mixed_use"] },
+
+  // ─── physical / construction / building amenities ─────────────────────
+  { key: "constructionType", label: "Construction type", kind: "select", jsonField: true, section: "physical",
+    appliesToSubtypes: ALL_BUT_LAND,
+    options: [
+      { value: "wood_frame", label: "Wood Frame" },
+      { value: "steel_frame", label: "Steel Frame" },
+      { value: "masonry", label: "Masonry" },
+      { value: "concrete", label: "Concrete / Tilt-up" },
+      { value: "brick", label: "Brick" },
+      { value: "block", label: "Block" },
+      { value: "other", label: "Other" },
+    ] },
+  { key: "roofType", label: "Roof type", kind: "select", jsonField: true, section: "physical",
+    appliesToSubtypes: ALL_BUT_LAND,
+    options: [
+      { value: "asphalt_shingle", label: "Asphalt Shingle" },
+      { value: "metal", label: "Metal" },
+      { value: "tpo", label: "TPO (membrane)" },
+      { value: "epdm", label: "EPDM (rubber)" },
+      { value: "modified_bitumen", label: "Modified Bitumen" },
+      { value: "built_up", label: "Built-up" },
+      { value: "tile", label: "Tile" },
+      { value: "other", label: "Other" },
+    ] },
+  { key: "hvacType", label: "HVAC", kind: "text", jsonField: true, section: "physical",
+    appliesToSubtypes: ALL_BUT_LAND,
+    helpText: "e.g. 'Central, gas-pack, 4 units'" },
+  { key: "heatingType", label: "Heating", kind: "text", jsonField: true, section: "physical",
+    appliesToSubtypes: ALL_BUT_LAND },
+  { key: "coolingType", label: "Cooling", kind: "text", jsonField: true, section: "physical",
+    appliesToSubtypes: ALL_BUT_LAND },
+  { key: "sprinklered", label: "Sprinkler system", kind: "boolean", jsonField: true, section: "physical",
+    appliesToSubtypes: ALL_BUT_LAND },
+  { key: "adaCompliant", label: "ADA compliant", kind: "boolean", jsonField: true, section: "physical",
+    appliesToSubtypes: ALL_BUT_LAND },
+  { key: "numElevators", label: "# of elevators", kind: "number", jsonField: true, section: "physical",
+    appliesToSubtypes: ["office", "retail", "industrial", "mixed_use", "multifamily"] },
+  { key: "buildingAmenities", label: "Building amenities", kind: "multi_select", jsonField: true, section: "physical",
+    appliesToSubtypes: ALL_BUT_LAND,
+    options: [
+      { value: "24_hour_access", label: "24-hour access" },
+      { value: "fitness_center", label: "Fitness center" },
+      { value: "conference_center", label: "Conference center" },
+      { value: "common_kitchen", label: "Common kitchen / break room" },
+      { value: "lobby", label: "Lobby" },
+      { value: "reception", label: "Reception / front desk" },
+      { value: "security", label: "Security / surveillance" },
+      { value: "on_site_management", label: "On-site management" },
+      { value: "on_site_maintenance", label: "On-site maintenance" },
+      { value: "bicycle_storage", label: "Bicycle storage" },
+      { value: "covered_parking", label: "Covered parking" },
+      { value: "drive_thru", label: "Drive-thru" },
+      { value: "outdoor_space", label: "Outdoor / patio space" },
+      { value: "high_ceilings", label: "High ceilings" },
+      { value: "natural_light", label: "Abundant natural light" },
+      { value: "mail_room", label: "Mail room" },
+    ] },
+  { key: "sewerType", label: "Sewer", kind: "select", jsonField: true, section: "physical",
+    options: [
+      { value: "city", label: "City" },
+      { value: "septic", label: "Septic" },
+      { value: "none", label: "None / N/A" },
+    ] },
+  { key: "waterSource", label: "Water source", kind: "select", jsonField: true, section: "physical",
+    options: [
+      { value: "city", label: "City" },
+      { value: "well", label: "Well" },
+      { value: "both", label: "City + Well" },
+      { value: "none", label: "None / N/A" },
+    ] },
+
+  // ─── agent ────────────────────────────────────────────────────────────
+  { key: "brokerage", label: "Brokerage", kind: "text", jsonField: true, section: "agent",
+    helpText: "e.g. Southern Visions Realty" },
+  { key: "agentLicense", label: "Agent license #", kind: "text", jsonField: true, section: "agent",
+    helpText: "e.g. SC #133081" },
+  { key: "coAgentName", label: "Co-listing agent name", kind: "text", jsonField: true, section: "agent" },
+  { key: "coAgentEmail", label: "Co-listing agent email", kind: "text", jsonField: true, section: "agent" },
+  { key: "coAgentPhone", label: "Co-listing agent phone", kind: "text", jsonField: true, section: "agent" },
+
+  // ─── land / commercial-with-land additions ───────────────────────────
+  { key: "floodZone", label: "FEMA flood zone", kind: "text", jsonField: true, section: "subtype",
+    helpText: "e.g. 'Zone X (minimal risk)' or 'AE'" },
+  { key: "wetlands", label: "Wetlands present", kind: "boolean", jsonField: true, section: "subtype",
+    appliesToSubtypes: ["land"] },
 ];
 
 export function fieldsForSubtype(subtype: Subtype): FieldDef[] {

@@ -5,9 +5,14 @@
 import { NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
-import { listings, pushAttempts } from "@/db/schema";
+import { listings, listingPhotos, pushAttempts } from "@/db/schema";
 import { releaseSteelSession } from "@/lib/steel";
-import { gotoPortal, fillForm, disconnect } from "@/lib/browser-push/engine";
+import {
+  gotoPortal,
+  fillForm,
+  uploadPhotos,
+  disconnect,
+} from "@/lib/browser-push/engine";
 import { PORTALS } from "@/lib/browser-push/portals";
 import {
   getRun,
@@ -103,12 +108,42 @@ async function handleLoginPhase(run: PushRun, action: "advance" | "skip") {
         .from(listings)
         .where(eq(listings.id, run.listingId));
       if (!listing) throw new Error("Listing not found");
+      const photos = await db
+        .select()
+        .from(listingPhotos)
+        .where(eq(listingPhotos.listingId, run.listingId));
 
       const fields = portal.getFields(run.listingSubtype);
-      const report = await fillForm(run.page, listing, fields);
-      run.portals[run.currentIndex].note =
-        `Bot filled ${report.filled.length} field(s); ` +
-        `${report.skipped.length} need a manual check`;
+      const fillReport = await fillForm(
+        run.page,
+        { ...listing, photos },
+        fields,
+      );
+      const uploadReport = await uploadPhotos(run.page, photos).catch(
+        (e) => ({
+          uploaded: 0,
+          reason: e instanceof Error ? e.message : String(e),
+        }),
+      );
+
+      const parts = [
+        `Bot filled ${fillReport.filled.length} field${fillReport.filled.length === 1 ? "" : "s"}`,
+      ];
+      if (uploadReport.uploaded > 0) {
+        parts.push(
+          `uploaded ${uploadReport.uploaded} photo${uploadReport.uploaded === 1 ? "" : "s"}`,
+        );
+      } else if (
+        uploadReport.reason &&
+        uploadReport.reason !== "no photos on listing"
+      ) {
+        parts.push(`photos: ${uploadReport.reason}`);
+      }
+      const skipTail =
+        fillReport.skipped.length > 0
+          ? `; ${fillReport.skipped.length} field${fillReport.skipped.length === 1 ? "" : "s"} need a manual check`
+          : "";
+      run.portals[run.currentIndex].note = parts.join(", ") + skipTail;
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       logger.warn({ runId: run.id, err: msg }, "auto-fill failed (non-fatal)");
