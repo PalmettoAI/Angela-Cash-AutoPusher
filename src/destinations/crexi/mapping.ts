@@ -61,9 +61,12 @@ export const crexiCommonMapping: FieldMap[] = [
   { listing: "apn", target: "APN" },
   { listing: "agentName", target: "Broker",
     defaultValue: "Angela Cash" },
-  { listing: "agentEmail", target: "Email",
+  // Keep the "Broker" prefix on email/phone targets — bare "Email"/"Phone"
+  // would risk grabbing a newsletter signup or contact-us widget elsewhere
+  // on the page.
+  { listing: "agentEmail", target: "Broker Email",
     defaultValue: "angela@angelacash.com" },
-  { listing: "agentPhone", target: "Phone" },
+  { listing: "agentPhone", target: "Broker Phone" },
 
   // ── universal commercial additions (added 2026-05-22). Labels are best-
   // guess Crexi UI labels; getByLabel runs partial match so close hits land.

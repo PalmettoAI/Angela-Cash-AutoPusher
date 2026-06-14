@@ -69,14 +69,26 @@ export async function POST(req: Request, { params }: RouteCtx) {
     run.error = null;
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
-    logger.error({ runId: run.id, err: msg }, "push advance failed");
-    run.phase = "failed";
-    run.error = msg;
-    run.message = `Something went wrong: ${msg}`;
+    logger.error({ runId: run.id, err: msg }, "push step failed");
+    // Mark this portal failed but TRY to keep the run alive — Angela
+    // shouldn't lose the rest of the portals because of one hiccup.
     const portal = run.portals[run.currentIndex];
     if (portal) portal.status = "failed";
-    await disconnect(run.browser);
-    await releaseSteelSession(run.steelSessionId);
+    run.error = msg;
+    try {
+      await goToNextPortal(run);
+      run.message = `${portal?.displayName ?? "That step"} hit an issue (${msg}). Moving on to the next site.`;
+    } catch (e2) {
+      // Couldn't even move on — the browser is probably gone. End cleanly.
+      logger.error(
+        { runId: run.id, err: e2 instanceof Error ? e2.message : String(e2) },
+        "couldn't recover after portal failure — ending run",
+      );
+      run.phase = "failed";
+      run.message = `Something went wrong: ${msg}`;
+      await disconnect(run.browser);
+      await releaseSteelSession(run.steelSessionId);
+    }
   } finally {
     run.busy = false;
     saveRun(run);

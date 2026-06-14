@@ -137,7 +137,20 @@ export async function fillForm(
       // how long a MISS costs, keeping the whole fill snappy on a live form.
       await input.waitFor({ state: "visible", timeout: 1_500 });
       const tag = await input.evaluate((el) => el.tagName.toLowerCase());
-      if (tag === "select") {
+      const inputType = await input
+        .evaluate((el) => (el as HTMLInputElement).type?.toLowerCase?.() ?? "")
+        .catch(() => "");
+
+      if (typeof value === "boolean") {
+        // Checkbox / radio: drive the actual checked state, never type text.
+        if (value) await input.check({ timeout: 2_000 });
+        else await input.uncheck({ timeout: 2_000 });
+      } else if (inputType === "checkbox" || inputType === "radio") {
+        // Truthy non-boolean → check; falsy → uncheck.
+        const on = !!text && !/^(false|no|0|off)$/i.test(text);
+        if (on) await input.check({ timeout: 2_000 });
+        else await input.uncheck({ timeout: 2_000 });
+      } else if (tag === "select") {
         await input.selectOption({ label: text }).catch(() => input.selectOption(text));
       } else {
         await input.fill(text, { timeout: 2_000 });
@@ -189,10 +202,20 @@ export async function uploadPhotos(
     return { uploaded: 0, reason: "photos aren't local uploads (external URLs)" };
   }
 
-  // Best-effort selectors, most specific first.
+  // Best-effort selectors, most specific first — covers raw inputs, common
+  // dropzone wrappers (Filepond, React-Dropzone, Crexi/LoopNet widgets), and
+  // testid-style hooks.
   const candidates = [
     'input[type="file"][accept*="image"]',
     'input[type="file"][multiple]',
+    '[data-testid*="photo" i] input[type="file"]',
+    '[data-testid*="image" i] input[type="file"]',
+    '[aria-label*="photo" i] input[type="file"]',
+    '[aria-label*="image" i] input[type="file"]',
+    '[class*="photo" i] input[type="file"]',
+    '[class*="image" i] input[type="file"]',
+    '[class*="upload" i] input[type="file"]',
+    '[class*="dropzone" i] input[type="file"]',
     'input[type="file"]',
   ];
   for (const sel of candidates) {
