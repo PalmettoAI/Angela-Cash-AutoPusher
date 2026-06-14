@@ -18,6 +18,10 @@ interface FieldMap {
 }
 
 export const crexiCommonMapping: FieldMap[] = [
+  // Targets refined 2026-06-14 against real public Crexi listing pages.
+  // Notable label realities observed: sale price is "Purchase Price" (not
+  // "Asking Price"), lot size is "Acreage", parking is "Parking Ratio",
+  // subtype detail is "Sub Type", and the agent card uses "Name".
   { listing: "title", target: "Property Name", required: true },
   { listing: "subtype", target: "Property Type", required: true,
     transform: (v) =>
@@ -29,12 +33,12 @@ export const crexiCommonMapping: FieldMap[] = [
         multifamily: "Multifamily",
         mixed_use: "Mixed Use",
       }[v as string] ?? v) },
-  { listing: "listingType", target: "Listing Type (Sale/Lease)", required: true,
+  { listing: "listingType", target: "Listing Type", required: true,
     transform: (v) =>
       ({ for_sale: "For Sale", for_lease: "For Lease", both: "For Sale & Lease" }[v as string] ?? v) },
   { listing: "marketingRemarks", target: "Description",
     notes: "Crexi allows agent branding/contact info — use marketingRemarks, not publicRemarks." },
-  { listing: "salePrice", target: "Asking Price" },
+  { listing: "salePrice", target: "Purchase Price" },
   { listing: "leaseRate", target: "Lease Rate" },
   { listing: "leaseType", target: "Lease Type",
     transform: (v) => v ? ({ nnn: "NNN", gross: "Gross", modified_gross: "Modified Gross" }[v as string] ?? v) : "" },
@@ -43,32 +47,32 @@ export const crexiCommonMapping: FieldMap[] = [
   { listing: "state", target: "State", required: true },
   { listing: "zip", target: "Zip", required: true },
   { listing: "buildingSqft", target: "Square Footage" },
-  { listing: "netRentableSqft", target: "Net Rentable (SqFt)" },
-  { listing: "lotSizeAcres", target: "Lot Size (Acres)" },
+  { listing: "netRentableSqft", target: "Net Rentable" },
+  { listing: "lotSizeAcres", target: "Acreage" },
   { listing: "yearBuilt", target: "Year Built" },
   { listing: "yearRenovated", target: "Year Renovated" },
   { listing: "numStories", target: "Stories" },
   { listing: "numBuildings", target: "Buildings" },
   { listing: "zoning", target: "Zoning" },
   { listing: "parkingSpaces", target: "Parking Spaces" },
-  { listing: "parkingRatio", target: "Parking Per SqFt" },
+  { listing: "parkingRatio", target: "Parking Ratio" },
   { listing: "occupancyPct", target: "Occupancy" },
   { listing: "occupancyDate", target: "Occupancy Date" },
   { listing: "apn", target: "APN" },
-  { listing: "agentName", target: "Listing Agent",
+  { listing: "agentName", target: "Broker",
     defaultValue: "Angela Cash" },
-  { listing: "agentEmail", target: "Agent Email",
+  { listing: "agentEmail", target: "Email",
     defaultValue: "angela@angelacash.com" },
-  { listing: "agentPhone", target: "Agent Phone" },
+  { listing: "agentPhone", target: "Phone" },
 
   // ── universal commercial additions (added 2026-05-22). Labels are best-
   // guess Crexi UI labels; getByLabel runs partial match so close hits land.
-  { listing: "highlights", target: "Property Highlights" },
-  { listing: "videoUrl", target: "Video URL" },
+  { listing: "highlights", target: "Highlights" },
+  { listing: "videoUrl", target: "Video" },
   { listing: "virtualTourUrl", target: "Virtual Tour" },
   { listing: "listingStatus", target: "Status" },
   { listing: "mlsNumber", target: "MLS #" },
-  { listing: "saleType", target: "Sale Type" },
+  { listing: "saleType", target: "Investment Type" },
   { listing: "operatingExpenses", target: "Operating Expenses" },
   { listing: "leaseRateUnit", target: "Rent Unit" },
   { listing: "tiAllowance", target: "TI Allowance" },
@@ -86,7 +90,7 @@ export const crexiCommonMapping: FieldMap[] = [
   { listing: "sewerType", target: "Sewer" },
   { listing: "waterSource", target: "Water" },
   { listing: "brokerage", target: "Brokerage" },
-  { listing: "agentLicense", target: "License #" },
+  { listing: "agentLicense", target: "License" },
   { listing: "coAgentName", target: "Co-Listing Agent" },
   { listing: "coAgentEmail", target: "Co-Listing Email" },
   { listing: "coAgentPhone", target: "Co-Listing Phone" },
@@ -96,13 +100,13 @@ export const crexiCommonMapping: FieldMap[] = [
 
 export const crexiSubtypeMappings: Record<Subtype, FieldMap[]> = {
   office: [
-    { listing: "officeSubtypeDetail", target: "Property Subtype (1–3)", required: true,
+    { listing: "officeSubtypeDetail", target: "Sub Type", required: true,
       notes: "Crexi multi-select, max 3" },
     { listing: "buildingClass", target: "Class" },
     { listing: "tenancy", target: "Tenancy" },
   ],
   retail: [
-    { listing: "retailSubtypeDetail", target: "Property Subtype (1–3)", required: true },
+    { listing: "retailSubtypeDetail", target: "Sub Type", required: true },
     { listing: "investmentType", target: "Investment Type" },
     { listing: "investmentSubType", target: "Investment Sub Type" },
     { listing: "buildingClass", target: "Class" },
@@ -120,7 +124,7 @@ export const crexiSubtypeMappings: Record<Subtype, FieldMap[]> = {
     { listing: "noi", target: "NOI" },
   ],
   industrial: [
-    { listing: "industrialSubtypeDetail", target: "Property Subtype (1–3)", required: true },
+    { listing: "industrialSubtypeDetail", target: "Sub Type", required: true },
     { listing: "buildingClass", target: "Class" },
     { listing: "tenancy", target: "Tenancy" },
     { listing: "loadingDocks", target: "Loading Docks" },
@@ -128,7 +132,7 @@ export const crexiSubtypeMappings: Record<Subtype, FieldMap[]> = {
     { listing: "ceilingHeight", target: "Ceiling Height" },
   ],
   land: [
-    { listing: "landSubtypeDetail", target: "Property Subtype (1–3)", required: true },
+    { listing: "landSubtypeDetail", target: "Sub Type", required: true },
     { listing: "opportunityZone", target: "Opportunity Zone" },
     { listing: "pricePerAcre", target: "Price/Acre" },
     { listing: "pricePerSqftLand", target: "Price/SqFt" },

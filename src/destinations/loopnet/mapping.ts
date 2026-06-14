@@ -16,6 +16,12 @@ interface FieldMap {
 }
 
 export const loopnetCommonMapping: FieldMap[] = [
+  // Targets refined 2026-06-14 against real public LoopNet listing pages.
+  // Observed labels: "Asking Price", "Total Building Size", "No. Stories",
+  // "Parking Ratio" (formatted "1.43/1,000 SF"), "APN / Parcel ID",
+  // "Property Video" (under a "Links" section). Many fields tolerate
+  // shorter partials so they match label variants ("Address" vs
+  // "Address Line 1", "Zoning" vs "Zoning Designation").
   { listing: "title", target: "Listing Title", required: true },
   { listing: "subtype", target: "Property Type", required: true,
     transform: (v) =>
@@ -27,26 +33,26 @@ export const loopnetCommonMapping: FieldMap[] = [
         multifamily: "Multifamily",
         mixed_use: "Specialty",
       }[v as string] ?? v) },
-  { listing: "listingType", target: "For", required: true,
+  { listing: "listingType", target: "Listing Type", required: true,
     transform: (v) =>
       ({ for_sale: "Sale", for_lease: "Lease", both: "Sale or Lease" }[v as string] ?? v) },
   { listing: "marketingRemarks", target: "Property Description", required: true,
     notes: "LoopNet allows agent branding — use marketingRemarks." },
-  { listing: "salePrice", target: "Price" },
-  { listing: "leaseRate", target: "Asking Rent (PSF/Yr)" },
-  { listing: "street", target: "Address Line 1", required: true },
+  { listing: "salePrice", target: "Asking Price" },
+  { listing: "leaseRate", target: "Asking Rent" },
+  { listing: "street", target: "Address", required: true },
   { listing: "city", target: "City", required: true },
   { listing: "state", target: "State", required: true },
   { listing: "zip", target: "Postal Code", required: true },
   { listing: "buildingSqft", target: "Total Building Size" },
-  { listing: "lotSizeAcres", target: "Total Land Area (acres)" },
+  { listing: "lotSizeAcres", target: "Total Land Area" },
   { listing: "yearBuilt", target: "Year Built" },
   { listing: "numStories", target: "No. Stories" },
   { listing: "tenancy", target: "Tenancy" },
-  { listing: "zoning", target: "Zoning Designation" },
-  { listing: "parkingSpaces", target: "Total Parking Spaces" },
+  { listing: "zoning", target: "Zoning" },
+  { listing: "parkingSpaces", target: "Parking Spaces" },
   { listing: "parkingRatio", target: "Parking Ratio" },
-  { listing: "apn", target: "APN / Parcel ID" },
+  { listing: "apn", target: "APN" },
   { listing: "agentName", target: "Broker", defaultValue: "Angela Cash" },
   { listing: "agentEmail", target: "Broker Email", defaultValue: "angela@angelacash.com" },
   { listing: "agentPhone", target: "Broker Phone" },
@@ -54,7 +60,7 @@ export const loopnetCommonMapping: FieldMap[] = [
   // ── universal commercial additions (added 2026-05-22). Labels are best-
   // guess LoopNet UI labels; getByLabel runs partial match.
   { listing: "highlights", target: "Highlights" },
-  { listing: "videoUrl", target: "Property Video URL" },
+  { listing: "videoUrl", target: "Property Video" },
   { listing: "virtualTourUrl", target: "Virtual Tour URL" },
   { listing: "listingStatus", target: "Status" },
   { listing: "mlsNumber", target: "MLS Number" },
